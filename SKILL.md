@@ -80,7 +80,7 @@ my_module
 
 6. Interface files(`pkg.generated.mbti`) 
    `pkg.generated.mbti` is compiler-generated summaries of each package's public API surface. They provide a formal, concise overview of all exported types, functions, and traits without implementation details.
-   They are generated using `moon info`, useful for code review, when you have a commit that does not change public APIs, `pkg.generated.mbti` files will remain unchanged, so it is recommended to put `pk.generated.mbti` in version control when you are done.
+   They are generated using `moon info`, useful for code review, when you have a commit that does not change public APIs, `pkg.generated.mbti` files will remain unchanged, so it is recommended to put `pkg.generated.mbti` in version control when you are done.
    
    You can also use `moon doc @moonbitlang/core/strconv` to explore the public API of a package interactively and `moon ide peek-def 'Array::join'` to read
    the definition.
