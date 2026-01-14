@@ -1,27 +1,28 @@
 ---
 name: moonbit-agent-guide
-description: Guide for writing, refactoring, and testing MoonBit projects. Use when working in MoonBit modules or packages, organizing MoonBit files, using moon tooling (build/check/test/doc/ide), or following MoonBit-specific layout, documentation, and testing conventions.
+description: Guide for writing, refactoring, and testing MoonBit projects. Use when working in MoonBit modules or packages, organizing MoonBit files, using moon tooling (build/check/run/test/doc/ide etc.), or following MoonBit-specific layout, documentation, and testing conventions.
 ---
 
 # MoonBit Project Layouts
 
-MoonBit use the `.mbt` extension and interface files `.mbti`. At
+MoonBit uses the `.mbt` extension for source code files and interface files with the `.mbti` extension. At
 the top-level of a MoonBit project there is a `moon.mod.json` file specifying
 the metadata of the project. The project may contain multiple packages, each
-with its own `moon.pkg.json` file.
+with its own `moon.pkg.json` file. Subdirectories may also contain `moon.mod.json`
+files indicating that a different set of dependencies can be used for that subdir.
 
 ## Example layout
 
 ```
 my_module
-├── moon.mod.json             # Module metadata, source field(optional) specifies the source directory of the module
+├── moon.mod.json             # Module metadata, source field (optional) specifies the source directory of the module
 ├── moon.pkg.json             # Package metadata (each directory is a package like Golang)
 ├── README.mbt.md             # Markdown with tested code blocks (`test "..." { ... }`)
 ├── README.md -> README.mbt.md
 ├── cmd                       # Command line directory
 │   └── main
 │       ├── main.mbt
-│       └── moon.pkg.json     # executable package with {"is_main": true}
+│       └── moon.pkg.json     # executable package with `{"is_main": true}`
 ├── liba/                     # Library packages
 │   └── moon.pkg.json         # Referenced by other packages as `@username/my_module/liba`
 │   └── libb/                 # Library packages
@@ -32,22 +33,24 @@ my_module
 └── ...                       # More package files, symbols visible to current package (like Golang)
 ```
 
-- **Module**:  `moon.mod.json` file in the project directory.
-  A MoonBit *module* is like a Go module,it is a collection of packages in subdirectories, usually corresponding to a repository or project.
+- **Module**: characterized by a `moon.mod.json` file in the project directory.
+  A MoonBit *module* is like a Go module; it is a collection of packages in subdirectories, usually corresponding to a repository or project.
   Module boundaries matter for dependency management and import paths.
 
-- **Package**: a `moon.pkg.json` file per directory. 
+- **Package**: characterized by a `moon.pkg.json` file in the project directory.
   All subcommands of `moon` will
   still be executed in the directory of the module (where `moon.mod.json` is
   located), not the current package.
   A MoonBit *package* is the actual compilation unit (like a Go package).
-  All source files in the same package are concatenated into one unit.
-  The `package` name in the source defines the package, not the file name.
+  All source files in the same package are concatenated into one unit and
+  thereby share all definitions throughout that package.
+  The `name` in the `moon.mod.json` file combined with the relative path to
+  the package source directory defines the package name, not the file name.
   Imports refer to module + package paths, NEVER to file names.
 
 - **Files**:
-  A `.mbt` file is just a chunk of source inside a package.
-  File names do NOT create modules or namespaces.
+  A `.mbt` file is just a chunk of source code inside a package.
+  File names do NOT create modules, packages, or namespaces.
   You may freely split/merge/move declarations between files in the same package.
   Any declaration in a package can reference any other declaration in that package, regardless of file.
 
@@ -59,7 +62,7 @@ my_module
    - If a file is getting large or unfocused, create a new file and move related declarations into it.
 
 2. You MAY freely move declarations between files inside the same package.
-   - Each block is separated by `///|`, moving a function/struct/trait between files does not change semantics, as long as its name and pub-ness stay the same, the order of each block is irrelevant too.
+   - Each block is separated by `///|`. Moving a function/struct/trait between files does not change semantics, as long as its name and pub-ness stay the same. The order of each block is irrelevant too.
    - It is safe to refactor by splitting or merging files inside a package.
 
 3. File names are purely organizational.
@@ -69,35 +72,39 @@ my_module
 4. When adding new code:
    - Prefer adding it to an existing file that matches the feature.
    - If no good file exists, create a new file under the same package with a descriptive name.
-   - Avoid creating giant “misc” or “util” files.
+   - Avoid creating giant "impl", “misc”, or “util” files.
 
 5. Tests:
-   - Place tests in dedicated test files (e.g. *_test.mbt) within the appropriate package.
-     For a package, besides `*_test.mbt`files,`*.mbt.md`are also blackbox test files, the code block `mbt check` are treated as test cases, they serve both purposes: documentation and tests.      
-     You may have `README.mbt.md` files with `mbt check` code examples, you can also symlink `README.mbt.md` to `README.md`
+   - Place tests in dedicated test files (e.g. `*_test.mbt`) within the appropriate package.
+     For a package (besides `*_test.mbt`files), `*.mbt.md` files are also blackbox test files in addition to Markdown files.
+     The code blocks (separated by triple backticks) `mbt check` are treated as test cases and serve both purposes: documentation and tests.
+     You may have `README.mbt.md` files with `mbt check` code examples. You can also symlink `README.mbt.md` to `README.md`
      to make it integrate better with GitHub.
-   - It is fine—and encouraged—to have multiple small test files.
+   - It is fine — and encouraged — to have multiple small test files.
 
-6. Interface files(`pkg.generated.mbti`) 
-   `pkg.generated.mbti` is compiler-generated summaries of each package's public API surface. They provide a formal, concise overview of all exported types, functions, and traits without implementation details.
-   They are generated using `moon info`, useful for code review, when you have a commit that does not change public APIs, `pkg.generated.mbti` files will remain unchanged, so it is recommended to put `pkg.generated.mbti` in version control when you are done.
-   
+6. Interface files (`pkg.generated.mbti`)
+   `pkg.generated.mbti` files are compiler-generated summaries of each package's public API surface.
+   They provide a formal, concise overview of all exported types, functions, and traits without implementation details.
+   They are generated using `moon info` and useful for code review. When you have a commit that does not change public APIs, `pkg.generated.mbti` files will remain unchanged, so it is recommended to put `pkg.generated.mbti` in version control when you are done.
+
    You can also use `moon doc @moonbitlang/core/strconv` to explore the public API of a package interactively and `moon ide peek-def 'Array::join'` to read
    the definition.
 
 # Common Pitfalls to Avoid
 
 - **Don't use uppercase for variables/functions** - compilation error
-- **Don't forget `mut` for mutable record fields** - immutable by default
+- **Don't forget `mut` for mutable record fields** - immutable by default (note that Arrays typically do NOT need `mut` unless completely reassigning to the variable - simple push operations, for example, do not need `mut`)
 - **Don't ignore error handling** - errors must be explicitly handled
-- **Don't use `return` unnecessarily** - last expression is the return value
+- **Don't use `return` unnecessarily** - the last expression is the return value
 - **Don't create methods without Type:: prefix** - methods need explicit type prefix
 - **Don't forget to handle array bounds** - use `get()` for safe access
 - **Don't forget @package prefix when calling functions from other packages**
 - **Don't use ++ or -- (not supported)** - use `i = i + 1` or `i += 1`
 - **Don't add explicit `try` for error-raising functions** - errors propagate automatically (unlike Swift)
 - **Legacy syntax**: Older code may use `function_name!(...)` or `function_name(...)?` - these are deprecated; use normal calls and `try?` for Result conversion
-
+- **Prefer range `for` loops over C-style** - `for i in 0..<(n-1) {...}` and `for j in 0..=6 {...}` are more idiomatic in MoonBit
+- **Async** - MoonBit has no `await` keyword; do not add it. Async functions and tests are characterized by those which call other async functions.
+  To identify a function or test as async, simply add the `async` prefix (e.g. `[pub] async fn ...`, `async test ...`).
 
 # `moon` Essentials
 
@@ -106,17 +113,21 @@ my_module
 - `moon new my_project` - Create new project
 - `moon run cmd/main` - Run main package
 - `moon build` - Build project
+  (`moon run` and `moon build` both support `--target`)
 - `moon check` - Type check without building, use it REGULARLY, it is fast
-- `moon info` - Type check and generate `mbti` files
-  run it to see if any public interfaces changed.
+  (`moon check` also supports `--target`)
+- `moon info` - Type check and generate `mbti` files.
+  Run it to see if any public interfaces changed.
+  (`moon info` also supports `--target`.)
 - `moon check --target all` - Type check for all backends
 - `moon add package` - Add dependency
 - `moon remove package` - Remove dependency
-- `moon fmt` - Format code
+- `moon fmt` - Format code - should be run periodically - note that the files may be rewritten
 
 ### Test Commands
 
 - `moon test` - Run all tests
+  (`moon test` also supports `--target`)
 - `moon test --update` - Update snapshots
 - `moon test -v` - Verbose output with test names
 - `moon test [dirname|filename]` - Test specific directory or file
@@ -125,14 +136,15 @@ my_module
   ```
   moon test float/float_test.mbt --filter "Float::*"
   ```
+
 ## `README.mbt.md` Generation Guide
 
-- Output `README.mbt.md` in the package directory. 
+- Output `README.mbt.md` in the package directory.
   `*.mbt.md` file and docstring contents treats `mbt check` specially.
   `mbt check` block will be included directly as code and also run by `moon check` and `moon test`.  If you don't want the code snippets to be checked, explicit `mbt nocheck` is preferred.
   If you are only referencing types from the package, you should use `mbt nocheck` which will only be syntax highlighted.
-  Symlink `README.mbt.md` to `README.md` to adapt to systems that expect `README.md`. 
-    
+  Symlink `README.mbt.md` to `README.md` to adapt to systems that expect `README.md`.
+
 ## Testing Guide
 
 Use snapshot tests as it is easy to update when behavior changes.
@@ -141,19 +153,21 @@ Use snapshot tests as it is easy to update when behavior changes.
   - Use regular `inspect()` for simple values (uses `Show` trait)
   - Use `@json.inspect()` for complex nested structures (uses `ToJson` trait, produces more readable output)
   - It is encouraged to `inspect` or `@json.inspect` the whole return value of a function if
-    the whole return value is not huge, this makes test simple. You need `impl (Show|ToJson) for YourType` or `derive (Show, ToJson)`.
+    the whole return value is not huge, this makes the test simple. You need `impl (Show|ToJson) for YourType` or `derive (Show, ToJson)`.
 - **Update workflow**: After changing code that affects output, run `moon test --update` to regenerate snapshots, then review the diffs in your test files (the `content=` parameter will be updated automatically).
 
 - Black-box by default: Call only public APIs via `@package.fn`. Use white-box tests only when private members matter.
 - Grouping: Combine related checks in one `test "..." { ... }` block for speed and clarity.
-- Panics: Name test with prefix `test "panic ..." {...}`; if the call returns a value, wrap it with `ignore(...)` to silence warnings.
+- Panics: Name tests with prefix `test "panic ..." {...}`; if the call returns a value, wrap it with `ignore(...)` to silence warnings.
 - Errors: Use `try? f()` to get `Result[...]` and `inspect` it when a function may raise.
 - Verify: Run `moon test` (or `-u` to update snapshots) and `moon fmt` afterwards.
 
-### Docstring tests 
+### Docstring tests
 
 Public APIs are encouraged to have docstring tests.
+
 ````mbt check
+
 ///|
 /// Get the largest element of a non-empty `Array`.
 ///
@@ -171,7 +185,7 @@ pub fn sum_array(xs : Array[Int]) -> Int {
 }
 ````
 
-The MoonBit code in docstring will be type checked and tested automatically.
+The MoonBit code in a docstring will be type checked and tested automatically
 (using `moon test --update`). In docstrings, `mbt check` should only contain `test` or `async test`.
 
 ## Spec-driven Development
@@ -179,6 +193,7 @@ The MoonBit code in docstring will be type checked and tested automatically.
 - The spec can be written in a readonly `spec.mbt` file (name is conventional, not mandatory) with stub code marked as declarations:
 
 ```mbt check
+
 ///|
 #declaration_only
 pub type Yaml
@@ -196,8 +211,8 @@ pub fn parse_yaml(s : String) -> Yaml raise {
 }
 ```
 
-- Add `spec_easy_test.mbt`, `spec_difficult_test.mbt` etc to test the spec functions; everything will be type-checked(`moon check`).
-- The AI or students can implement the `declaration_only` functions in different files thanks to our package organization.
+- Add `spec_easy_test.mbt`, `spec_difficult_test.mbt`, etc. to test the spec functions; everything will be type-checked(`moon check`).
+- The AI or users can implement the `declaration_only` functions in different files thanks to our package organization.
 - Run `moon test` to check everything is correct.
 
 - `#declaration_only` is supported for functions, methods, and types.
@@ -206,7 +221,7 @@ pub fn parse_yaml(s : String) -> Yaml raise {
 
 ## `moon doc` for API Discovery
 
-**CRITICAL**: `moon doc '<query>'` is your PRIMARY tool for discovering available APIs, functions, types, and methods in MoonBit. Always prefer `moon doc` over other approaches when exploring what APIs are available, it is **more powerful and accurate** than `grep_search` or any regex-based searching tools. 
+**CRITICAL**: `moon doc '<query>'` is your PRIMARY tool for discovering available APIs, functions, types, and methods in MoonBit. Always prefer `moon doc` over other approaches when exploring what APIs are available, it is **more powerful and accurate** than `grep_search` or any regex-based searching tools.
 
 
 `moon doc` uses a specialized query syntax designed for symbol lookup:
@@ -217,7 +232,7 @@ pub fn parse_yaml(s : String) -> Yaml raise {
   - Outside package: shows all available packages
 
 - **Function/value lookup**: `moon doc "[@pkg.]value_or_function_name"`
-  
+
 - **Type lookup**: `moon doc "[@pkg.]Type_name"` (builtin type does not need package prefix)
 
 - **Method/field lookup**: `moon doc "[@pkg.]Type_name::method_or_field_name"`
@@ -240,7 +255,7 @@ type String
   pub fn String::add(String, String) -> String
   # ... more methods omitted ...
 
-$ moon doc "@buffer" # list all symbols in  package buffer:
+$ moon doc "@buffer" # list all symbols in package buffer:
 moonbitlang/core/buffer
 
 fn from_array(ArrayView[Byte]) -> Buffer
@@ -263,19 +278,23 @@ pub fn String::rev(String) -> String
 pub fn String::rev_find(String, StringView) -> Int?
   Returns ... omitted ...
 ````
+
 **Best practice**: When implementing a feature, start with `moon doc` queries to discover available APIs before writing code. This is faster and more accurate than searching through files.
 
 ## `moon ide [peek-def|outline|find-references]` for code navigation and refactoring
 
-For project-local symbols and navigation, use `moon ide outline .` to scan a package, `moon ide find-references <symbol>` to locate usages, and `moon ide peek-def` for inline definition context and locate toplevel symbols. 
+For project-local symbols and navigation, use:
+- `moon ide outline .` to scan a package,
+- `moon ide find-references <symbol>` to locate usages, and
+- `moon ide peek-def` for inline definition context and to locate toplevel symbols.
 
-These tools save tokens and more precise than grepping(grep display results in both definition and call site including comments too).
+These tools save tokens and are more precise than grepping (`grep` displays results in both definitions and call sites including comments too).
 
 ### `moon ide peek-def sym [-loc filename:line:col]` example
 
-When the user ask: Can you check if `Parser::read_u32_leb128` is implemented correctly?
-
-In this case, You can run `moon ide peek-def Parser::read_u32_leb128` to get the definition context: (this is better than `grep` since it searches the whole project by semantics)
+When the user asks: "Can you check if `Parser::read_u32_leb128` is implemented correctly?"
+you can run `moon ide peek-def Parser::read_u32_leb128` to get the definition context
+(this is better than `grep` since it searches the whole project by semantics):
 
 ``` file src/parse.mbt
 L45:|///|
@@ -283,7 +302,8 @@ L46:|fn Parser::read_u32_leb128(self : Parser) -> UInt raise ParseError {
 L47:|  ...
 ...:| }
 ```
-Now you want to see the definition of `Parser` struct, you can run:
+
+Now if you want to see the definition of the `Parser` struct, you can run:
 
 ```bash
 $ moon ide peek-def Parser -loc src/parse.mbt:46:4
@@ -293,13 +313,15 @@ Definition found at file src/parse.mbt
   |             ^^^^^^
   |   bytes : Bytes
   |   mut pos : Int
-  | }  
-  | 
+  | }
+  |
 ```
-For the `-loc` argument, the line number must be precise; the column can be approximate since 
+
+For the `-loc` argument, the line number must be precise; the column can be approximate since
 the positonal argument `Parser` helps locate the position.
 
-If the sym is toplevel symbol, the location can be omitted:
+If the "sym" is a toplevel symbol, the location can be omitted:
+
 ````bash
 $ moon ide peek-def String::rev
 Found 1 symbols matching 'String::rev':
@@ -310,16 +332,16 @@ Found 1 symbols matching 'String::rev':
      | /// Unicode characters and surrogate pairs but not grapheme clusters.
      | pub fn String::rev(self : String) -> String {
      |   self[:].rev()
-     | }         
+     | }
 ````
 
 ### `moon ide outline [dir|file]` and `moon ide find-references <sym>` for Package Symbols
 
-Use this to scan a package or file for top-level symbols and locate usages without grepping
+Use `moon ide outline` to scan a package or file for top-level symbols and locate usages without grepping.
 
 - `moon ide outline dir` outlines the current package directory (per-file headers)
 - `moon ide outline parser.mbt` outlines a single file
-- Useful when you need a quick inventory of a package, or to find the right file before `goto-definition`
+  This is useful when you need a quick inventory of a package, or to find the right file before `goto-definition`.
 - `moon ide find-references TranslationUnit` finds all references to a symbol in the current module
 
 ```bash
@@ -384,7 +406,7 @@ moon update                   # Update package index
 }
 ```
 
-Packages per directory, packages without `moon.pkg.json` are not recognized.
+Packages are per directory and packages without a `moon.pkg.json` file are not recognized.
 
 ### Package Importing (used in moon.pkg.json)
 
@@ -396,13 +418,15 @@ Packages per directory, packages without `moon.pkg.json` are not recognized.
 
 **Package Alias Rules**:
 
-- Import `"username/hello/liba"` → use `@liba.function()` (default alias is last path segment)
+- Import `"username/hello/liba"` → use `@liba.function()` (default alias is the last path segment)
 - Import with custom alias `{"path": "moonbitlang/x/encoding", "alias": "enc"}` → use `@enc.function()`
+  (Note that this is unnecessary when the last path segment is identical to the alias name.)
 - In `_test.mbt` or `_wbtest.mbt` files, the package being tested is auto-imported
 
 Example:
 
 ```mbt
+
 ///|
 /// In main.mbt after importing "username/hello/liba" in `moon.pkg.json`
 fn main {
@@ -410,7 +434,7 @@ fn main {
 }
 ```
 
-### Using Standard Library (moonbitlang/core)
+### Using the Standard Library (moonbitlang/core)
 
 **MoonBit standard library (moonbitlang/core) packages are automatically imported** - DO NOT add them to dependencies:
 
@@ -438,16 +462,18 @@ To add a new package `fib` under `.`:
      ]
    }
    ```
+
 For more advanced topics like `conditional compilation`, `link configuration`, `warning control`, and `pre-build commands`, see `references/advanced-moonbit-build.md`.
 
 # MoonBit Language Tour
 
 ## Core facts
 
-- **Expression‑oriented**: `if`, `match`, loops return values; last expression is the return.
+- **Expression‑oriented**: `if`, `match`, loops return values; the last expression is the return value.
 - **References by default**: Arrays/Maps/structs mutate via reference; use `Ref[T]` for primitive mutability.
 - **Blocks**: Separate top‑level items with `///|`. Generate code block‑by‑block.
-- **Visibility**: `fn` private by default; `pub` exposes read/construct as allowed; `pub(all)` allows external construction.
+  If a blank line is desired within a block (enclosed by curly braces), add a comment line after the blank line (with or without comment text).
+- **Visibility**: `fn` is private by default; `pub` exposes read/construct as allowed; `pub(all)` allows external construction.
 - **Naming convention**: lower_snake for values/functions; UpperCamel for types/enums; enum variants start UpperCamel.
 - **Packages**: No `import` in code files; call via `@alias.fn`. Configure imports in `moon.pkg.json`.
 - **Placeholders**: `...` is a valid placeholder in MoonBit code for incomplete implementations.
@@ -458,27 +484,30 @@ For more advanced topics like `conditional compilation`, `link configuration`, `
 
 ## MoonBit Error Handling (Checked Errors)
 
-MoonBit uses checked error-throwing functions, not unchecked exceptions. All errors are subtype of `Error`, we can declare our own error types by `suberror`.
+MoonBit uses checked error-throwing functions, not unchecked exceptions. All errors are a subtype of `Error` and you can declare your own error types using `suberror`.
 Use `raise` in signatures to declare error types and let errors propagate by
 default. Use `try?` to convert to `Result[...]` in tests, or `try { } catch { }`
-to handle errors explicitly.
+to handle errors explicitly. Use `try!` to rethrow any errors to the parent calling function.
 
 ```mbt check
+
 ///|
 /// Declare error types with 'suberror'
-suberror ValueError String
+suberror ValueError {
+  ValueError(String)
+}
 
 ///|
 /// Tuple struct to hold position info
-struct Position(Int, Int) derive(ToJson, Show, Eq) 
+struct Position(Int, Int) derive(ToJson, Show, Eq)
 
 ///|
 /// ParseError is subtype of Error
 pub(all) suberror ParseError {
-  InvalidChar(pos~:Position, Char) // pos is labeled
-  InvalidEof(pos~:Position)
-  InvalidNumber(pos~:Position, String)
-  InvalidIdentEscape(pos~:Position)
+  InvalidChar(pos~ : Position, Char) // pos is labeled
+  InvalidEof(pos~ : Position)
+  InvalidNumber(pos~ : Position, String)
+  InvalidIdentEscape(pos~ : Position)
 } derive(Eq, ToJson, Show)
 
 ///|
@@ -502,18 +531,18 @@ fn div(x : Int, y : Int) -> Int raise {
 
 ///|
 test "inspect raise function" {
-  let result : Result[Int, Error] = try? div(1, 0) 
+  let result : Result[Int, Error] = try? div(1, 0)
   guard result is Err(Failure(msg)) && msg.contains("Division by zero") else {
     fail("Expected error")
-  }  
+  }
 }
 
 // Three ways to handle errors:
 
 ///|
 /// Propagate automatically
-fn use_parse(position~: Position) -> Int raise ParseError {
-  let x = parse_int("123", position=position)
+fn use_parse(position~ : Position) -> Int raise ParseError {
+  let x = parse_int("123", position~)
   // Error auto-propagates by default.
   // Unlike Swift, you do not need to mark `try` for functions that can raise
   // errors; the compiler infers it automatically. This keeps error handling
@@ -524,20 +553,20 @@ fn use_parse(position~: Position) -> Int raise ParseError {
 ///|
 /// Mark `raise` for all possible errors, do not care which error it is.
 /// For quick prototypes, `raise` is acceptable.
-fn use_parse2(position~: Position) -> Int raise {
-  let x = parse_int("123", position=position)
+fn use_parse2(position~ : Position) -> Int raise {
+  let x = parse_int("123", position~)
   x * 2
 }
 
 ///|
 /// Convert to Result with try?
-fn safe_parse(s : String, position~: Position) -> Result[Int, ParseError] {
-  let val1 : Result[_] = try? parse_int(s, position=position) // Returns Result[Int, ParseError]
+fn safe_parse(s : String, position~ : Position) -> Result[Int, ParseError] {
+  let val1 : Result[_] = try? parse_int(s, position~) // Returns Result[Int, ParseError]
   // try! is rarely used - it panics on error, similar to unwrap() in Rust
   // let val2 : Int = try! parse_int(s) // Returns Int otherwise crash
 
   // Alternative explicit handling:
-  let val3 = try parse_int(s, position=position) catch {
+  let val3 = try parse_int(s, position~) catch {
     err => Err(err)
   } noraise { // noraise block is optional - handles the success case
     v => Ok(v)
@@ -560,13 +589,15 @@ fn handle_parse(s : String, position~: Position) -> Int {
 
 Important: When calling a function that can raise errors, if you only want to
 propagate the error, you do not need any marker; the compiler infers it.
+Note that all `async` functions automatically can raise errors without explicitly stating this.
 
 ## Integers, Char
 
-MoonBit supports Byte, Int16, Int, UInt16, UInt, Int64, UInt64, etc. When the type is known,
-the literal can be overloaded:
+MoonBit supports `Byte`, `Int16`, `Int`, `UInt16`, `UInt`, `Int64`, `UInt64`, etc.
+When the type is known, the literal can be overloaded:
 
 ```mbt check
+
 ///|
 test "integer and char literal overloading disambiguation via type in the current context" {
   let a0 = 1 // a is Int by default
@@ -581,6 +612,7 @@ test "integer and char literal overloading disambiguation via type in the curren
 ## Bytes (Immutable)
 
 ```mbt check
+
 ///|
 test "bytes literals overloading and indexing" {
   let b0 : Bytes = b"abcd"
@@ -590,17 +622,18 @@ test "bytes literals overloading and indexing" {
     // Bytes can be pattern matched as BytesView and indexed
     fail("unexpected bytes content")
   }
-  
+
 }
 ```
 ## Array (Resizable)
 
 ```mbt check
+
 ///|
 test "array literals overloading: disambiguation via type in the current context" {
   let a0 : Array[Int] = [1, 2, 3] // resizable
   let a1 : FixedArray[Int] = [1, 2, 3] // Fixed size
-  let a2 : ReadOnlyArray[Int] = [1, 2, 3] 
+  let a2 : ReadOnlyArray[Int] = [1, 2, 3]
   let a3 : ArrayView[Int] = [1, 2, 3]
 }
 ```
@@ -609,6 +642,7 @@ test "array literals overloading: disambiguation via type in the current context
 Since MoonBit supports char literal overloading, you can write code snippets like this:
 
 ```mbt check
+
 ///|
 test "string indexing and utf8 encode/decode" {
   let s = "hello world"
@@ -617,9 +651,9 @@ test "string indexing and utf8 encode/decode" {
     fail("unexpected string content")
   }
   guard rest is " world" // otherwise will crash (guard without else)
-  
+
   // In check mode (expression with explicit type), ('\n' : UInt16) is valid.
-  
+
   // Using get_char for Option handling
   let b1 : Char? = s.get_char(0)
   assert_true(b1 is Some('a'..='z'))
@@ -633,7 +667,7 @@ test "string indexing and utf8 encode/decode" {
   let s2 : String = @encoding/utf8.decode(bytes) // decode utf8 bytes back to String
   assert_true(s2 is "中文")
   for c in "中文" {
-    let _ : Char = c // unicode safe iteration  
+    let _ : Char = c // unicode safe iteration
     println("char: \{c}") // iterate over chars
   }
 }
@@ -641,9 +675,10 @@ test "string indexing and utf8 encode/decode" {
 
 ### String Interpolation && StringBuilder
 
-MoonBit uses `\{}` for string interpolation, for custom types, it needs implement trait `Show`
+MoonBit uses `\{}` for string interpolation, for custom types, they need to implement trait `Show`.
 
 ```mbt check
+
 ///|
 test "string interpolation basics" {
 
@@ -657,7 +692,7 @@ test "string interpolation basics" {
   // ✅ Correct - extract to variable first:
   let has_key = config["cache"] // `"` not allowed in interpolation
   println("  - Checking if 'cache' section exists: \{has_key}")
-  
+
   let sb = StringBuilder::new()
   sb..write_char('[') // dotdot for imperative method chaining
     ..write_view([1,2,3].map((x) => "\{x}").join(","))
@@ -666,25 +701,26 @@ test "string interpolation basics" {
 }
 ```
 
-Expressions inside `\{}` can only be _basic expressions_ (no quotes, newlines, or nested interpolations). String literals are not allowed as it makes lexing too difficult.
+Expressions inside `\{}` can only be _basic expressions_ (no quotes, newlines, or nested interpolations). String literals are not allowed as they make lexing too difficult.
 
 
 ### Multiple line strings
 
 ```mbt check
+
 ///|
-test "multi-line string literals" {  
+test "multi-line string literals" {
   let multi_line_string : String =
     #|Hello "world"
     #|World
     #|
   let multi_line_string_with_interp : String =
-    $|Line 1 ""
+    #|Line 1 ""
     $|Line 2 \{1+2}
-    $|
-  // no escape in `#|`, 
+    #|
+  // no escape in `#|`,
   // only escape '\{..}` in `$|`
-  assert_eq(multi_line_string, "Hello \"world\"\nWorld\n")  
+  assert_eq(multi_line_string, "Hello \"world\"\nWorld\n")
   assert_eq(multi_line_string_with_interp, "Line 1 \"\"\nLine 2 3\n")
 }
 ```
@@ -692,10 +728,11 @@ test "multi-line string literals" {
 ## Map (Mutable, Insertion-Order Preserving)
 
 ```mbt check
+
 ///|
 test "map literals and common operations" {
   // Map literal syntax
-  let map : Map[String, Int] = { "a": 1, "b": 2, "c": 3 }  
+  let map : Map[String, Int] = { "a": 1, "b": 2, "c": 3 }
   let empty : Map[String, Int] = {} // Empty map, preferred
   let also_empty : Map[String, Int] = Map::new()
   // From array of pairs
@@ -721,7 +758,7 @@ test "map literals and common operations" {
   // Other common operations
   map.remove("b")
   guard map is { "a": 10, "c": 3, "new-key": 3, .. } && map.length() == 3 else {
-    // "b" is gone, only 3 elements left  
+    // "b" is gone, only 3 elements left
     fail("unexpected map contents after removal")
   }
 }
@@ -729,11 +766,11 @@ test "map literals and common operations" {
 
 ## View Types
 
-**Key Concept**: View types (`StringView`, `BytesView`, `ArrayView[T]`) are zero-copy, non-owning read-only slices created with the `[:]` syntax. They don't allocate memory and are ideal for passing sub-sequences without copying data, for function which takes String, Bytes, Array, they also take *View(implicit conversion).
+**Key Concept**: View types (`StringView`, `BytesView`, `ArrayView[T]`) are zero-copy, non-owning read-only slices created with the `[:]` syntax. They don't allocate memory and are ideal for passing sub-sequences without copying data, for functions which take `String`, `Bytes`, `Array`, they also take `*View` (implicit conversion).
 
-- `String` → `StringView` via `s[:]` or `s[start:end]`
-- `Bytes` → `BytesView` via `b[:]` or `b[start:end]`
-- `Array[T]`, `FixedArray[T]`, `ReadOnlyArray[T] → `ArrayView[T]` via `a[:]` or `a[start:end]`
+- `String` → `StringView` via `s[:]` or `s[start:end]` or `s[start:]` or `s[:end]`
+- `Bytes` → `BytesView` via `b[:]` or `b[start:end]`, etc.
+- `Array[T]`, `FixedArray[T]`, `ReadOnlyArray[T] → `ArrayView[T]` via `a[:]` or `a[start:end]`, etc.
 
 **Important**: StringView slice is slightly different due to unicode safety:
 `s[a:b]` may raise an error at surrogate boundaries (UTF-16 encoding edge case). You have two options:
@@ -752,6 +789,7 @@ Convert back with `.to_string()`, `.to_bytes()`, or `.to_array()` when you need 
 ## User defined types(`enum`, `struct`)
 
 ```mbt check
+
 ///|
 enum Tree[T] {
   Leaf(T) // Unlike Rust, no comma here
@@ -761,7 +799,7 @@ enum Tree[T] {
 ///|
 pub fn Tree::sum(tree : Tree[Int]) -> Int {
   match tree {
-    Leaf(x) => x 
+    Leaf(x) => x
     // we don't need to write Tree::Leaf, when `tree` has a known type
     Node(left~, x, right~) => left.sum() + x + right.sum() // method invoked in dot notation
   }
@@ -842,8 +880,9 @@ test "functional for loop control flow" {
   }
 }
 ```
+
 You are *STRONGLY ENCOURAGED* to use functional `for` loops instead of imperative loops
-*WHENEVER POSSIBLE*, as they are easier to reason about.
+*WHENEVER POSSIBLE*, as they are easier to read and reason about.
 
 ### Loop Invariants with `where` Clause
 
@@ -862,7 +901,7 @@ for ... {
 
 **Writing Good Invariants:**
 
-1. **Make them checkable**: Invariants must be valid MoonBit boolean expressions using loop variables and captured values.
+1. **Make invariants checkable**: Invariants must be valid MoonBit boolean expressions using loop variables and captured values.
 
 2. **Use boundary witnesses**: For properties over ranges (e.g., "all elements in arr[0..i) satisfy P"), check only boundary elements. For sorted arrays, `arr[i-1] < value` implies all `arr[0..i) < value`.
 
@@ -878,6 +917,7 @@ for ... {
 Good example: use labeled and optional parameters
 
 ```mbt check
+
 ///|
 fn g(
   positional : Int,
@@ -905,6 +945,7 @@ Misuse: `arg : Type?` is not an optional parameter.
 Callers still must pass it (as `None`/`Some(...)`).
 
 ```mbt check
+
 ///|
 fn with_config(a : Int?, b : Int?, c : Int) -> String {
   "\{a},\{b},\{c}"
@@ -921,6 +962,7 @@ Anti-pattern: `arg? : Type?` (no default => double Option).
 If you want a defaulted optional parameter, write `b? : Int = 1`, not `b? : Int? = Some(1)`.
 
 ```mbt check
+
 ///|
 fn f_misuse(a? : Int?, b? : Int = 1) -> Unit {
   let _ : Int?? = a // rarely intended
@@ -948,6 +990,7 @@ test {
 Bad example: `arg : APIOptions` (use labeled optional parameters instead)
 
 ```mbt check
+
 ///|
 /// Do not use struct to group options.
 struct APIOptions {

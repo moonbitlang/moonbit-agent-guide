@@ -1,6 +1,6 @@
 # MoonBit Agent Skill
 
-This repository contains a [Agent Skill](https://agentskills.io/home) that teaches AI coding agents the MoonBit language and its toolchain.
+This repository contains an [Agent Skill](https://agentskills.io/home) that teaches AI coding agents the MoonBit programming language and its toolchain.
 
 ## Integrate the Skill into your agent
 
@@ -43,4 +43,3 @@ Documentation: https://cursor.com/cn/docs/context/skills
 ### Gemini CLI
 
 It seems that Gemini CLI will support agent skills in next release: https://github.com/google-gemini/gemini-cli/issues/15327
-
