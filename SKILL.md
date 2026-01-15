@@ -487,7 +487,7 @@ For more advanced topics like `conditional compilation`, `link configuration`, `
 MoonBit uses checked error-throwing functions, not unchecked exceptions. All errors are a subtype of `Error` and you can declare your own error types using `suberror`.
 Use `raise` in signatures to declare error types and let errors propagate by
 default. Use `try?` to convert to `Result[...]` in tests, or `try { } catch { }`
-to handle errors explicitly. Use `try!` to rethrow any errors to the parent calling function.
+to handle errors explicitly. Use `try!` to abort if it does raise.
 
 ```mbt check
 
@@ -715,9 +715,9 @@ test "multi-line string literals" {
     #|World
     #|
   let multi_line_string_with_interp : String =
-    #|Line 1 ""
+    $|Line 1 ""
     $|Line 2 \{1+2}
-    #|
+    $|
   // no escape in `#|`,
   // only escape '\{..}` in `$|`
   assert_eq(multi_line_string, "Hello \"world\"\nWorld\n")
