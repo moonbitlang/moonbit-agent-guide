@@ -33,11 +33,11 @@ my_module
 └── ...                       # More package files, symbols visible to current package (like Golang)
 ```
 
-- **Module**: characterized by a `moon.mod.json` file in the project directory.
+- **Module**: characterized by a `moon.mod.json` file in the project root directory.
   A MoonBit *module* is like a Go module; it is a collection of packages in subdirectories, usually corresponding to a repository or project.
   Module boundaries matter for dependency management and import paths.
 
-- **Package**: characterized by a `moon.pkg.json` file in the project directory.
+- **Package**: characterized by a `moon.pkg.json` file in each directory.
   All subcommands of `moon` will
   still be executed in the directory of the module (where `moon.mod.json` is
   located), not the current package.
@@ -542,7 +542,7 @@ test "inspect raise function" {
 ///|
 /// Propagate automatically
 fn use_parse(position~ : Position) -> Int raise ParseError {
-  let x = parse_int("123", position~)
+  let x = parse_int("123", position~) // label punning, equivalent to position=position
   // Error auto-propagates by default.
   // Unlike Swift, you do not need to mark `try` for functions that can raise
   // errors; the compiler infers it automatically. This keeps error handling
@@ -554,7 +554,7 @@ fn use_parse(position~ : Position) -> Int raise ParseError {
 /// Mark `raise` for all possible errors, do not care which error it is.
 /// For quick prototypes, `raise` is acceptable.
 fn use_parse2(position~ : Position) -> Int raise {
-  let x = parse_int("123", position~)
+  let x = parse_int("123", position~) // label punning
   x * 2
 }
 
