@@ -132,7 +132,7 @@ my_module
 - `moon test -v` - Verbose output with test names
 - `moon test [dirname|filename]` - Test specific directory or file
 - `moon coverage analyze` - Analyze coverage
-- `moon test --filter 'globl'` - Run tests matching filter
+- `moon test [dirname|filename] --filter 'glob'` - Run tests matching filter
   ```
   moon test float/float_test.mbt --filter "Float::*"
   ```
