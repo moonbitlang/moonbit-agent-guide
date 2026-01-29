@@ -263,7 +263,7 @@ moon doc "<query>"
 moon ide outline <dir|file>
 moon ide find-references <symbol>
 moon ide peek-def <symbol>
-moon ide rename <symbol>
+moon ide rename <symbol> -new-name <new_name>
 moon check
 moon test
 moon info
