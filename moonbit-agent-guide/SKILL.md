@@ -276,14 +276,48 @@ pub fn String::rev_find(String, StringView) -> Int?
 
 **Best practice**: When implementing a feature, start with `moon doc` queries to discover available APIs before writing code. This is faster and more accurate than searching through files.
 
-## `moon ide [peek-def|outline|find-references|hover]` for code navigation and refactoring
+## `moon ide [peek-def|outline|find-references|hover|rename]` for code navigation and refactoring
 
 For project-local symbols and navigation, use:
 - `moon ide outline .` to scan a package,
 - `moon ide find-references <symbol>` to locate usages, and
 - `moon ide peek-def` for inline definition context and to locate toplevel symbols.
 - `moon ide hover sym -loc filename:line:col` to get type information at a specific location.
+- `moon ide rename <symbol> -new-name <new_name>` to rename a symbol project-wide.
 These tools save tokens and are more precise than grepping (`grep` displays results in both definitions and call sites including comments too).
+
+### `moon ide rename sym -new-name new_name [-loc filename:line:col]` example
+
+When the user asks: "Can you rename the function `compute_sum` to `calculate_sum`?"
+
+```
+$ moon ide rename compute_sum -new-name calculate_sum -loc math_utils.mbt:2
+
+*** Begin Patch
+*** Update File: cmd/main/main.mbt
+@@
+ ///|
+ fn main {
+-  println(@math_utils.compute_sum(1, 2))
++  println(@math_utils.calculate_sum(1, 2))
+ }
+*** Update File: math_utils.mbt
+@@
+ ///|
+-pub fn compute_sum(a: Int, b: Int) -> Int {
++pub fn calculate_sum(a: Int, b: Int) -> Int {
+   a + b
+ }
+*** Update File: math_utils_test.mbt
+@@
+ ///|
+ test {
+-  inspect(@math_utils.compute_sum(1, 2))
++  inspect(@math_utils.calculate_sum(1, 2))
+ }
+*** End Patch
+```
+
 ### `moon ide hover sym -loc filename:line:col` example
 
 When the user asks: "What is the signature and docstring of `filter`? at line 14 of hover.mbt"
