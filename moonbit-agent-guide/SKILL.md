@@ -214,10 +214,18 @@ declare pub fn parse_yaml(s : String) -> Yaml raise
 - The `pub type Yaml` line is an intentionally opaque placeholder; the implementer chooses its representation.
 - Note the spec file can also contain normal code, not just declarations.
 
-## `moon ide doc` for API Discovery
+## `moon ide [doc|peek-def|outline|find-references|hover|rename]` for code navigation and refactoring
 
-**CRITICAL**: `moon ide doc '<query>'` is your PRIMARY tool for discovering available APIs, functions, types, and methods in MoonBit. Always prefer `moon ide doc` over other approaches when exploring what APIs are available, it is **more powerful and accurate** than `grep_search` or any regex-based searching tools.
+For project-local symbols and navigation, use:
+- `moon ide doc <query>` to discover available APIs, functions, types, and methods in MoonBit. Always prefer `moon ide doc` over other approaches when exploring what APIs are available, it is **more powerful and accurate** than `grep_search` or any regex-based searching tools.
+- `moon ide outline .` to scan a package,
+- `moon ide find-references <symbol>` to locate usages, and
+- `moon ide peek-def` for inline definition context and to locate toplevel symbols.
+- `moon ide hover sym -loc filename:line:col` to get type information at a specific location.
+- `moon ide rename <symbol> -new-name <new_name>` to rename a symbol project-wide.
+These tools save tokens and are more precise than grepping (`grep` displays results in both definitions and call sites including comments too).
 
+### `moon ide doc` for API Discovery
 
 `moon ide doc` uses a specialized query syntax designed for symbol lookup:
 - **Empty query**: `moon ide doc ''`
@@ -239,7 +247,7 @@ declare pub fn parse_yaml(s : String) -> Yaml raise
 
 - **Globbing**: Use `*` wildcard for partial matches, e.g. `moon ide doc "String::*rev*"` to find all String methods with "rev" in their name
 
-### `moon ide doc` Examples
+#### `moon ide doc` Examples
 
 ````bash
 # search for String methods in standard library:
@@ -275,16 +283,6 @@ pub fn String::rev_find(String, StringView) -> Int?
 ````
 
 **Best practice**: When implementing a feature, start with `moon ide doc` queries to discover available APIs before writing code. This is faster and more accurate than searching through files.
-
-## `moon ide [doc|peek-def|outline|find-references|hover|rename]` for code navigation and refactoring
-
-For project-local symbols and navigation, use:
-- `moon ide outline .` to scan a package,
-- `moon ide find-references <symbol>` to locate usages, and
-- `moon ide peek-def` for inline definition context and to locate toplevel symbols.
-- `moon ide hover sym -loc filename:line:col` to get type information at a specific location.
-- `moon ide rename <symbol> -new-name <new_name>` to rename a symbol project-wide.
-These tools save tokens and are more precise than grepping (`grep` displays results in both definitions and call sites including comments too).
 
 ### `moon ide rename sym -new-name new_name [-loc filename:line:col]` example
 
