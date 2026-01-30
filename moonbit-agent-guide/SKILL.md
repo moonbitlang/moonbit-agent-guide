@@ -87,7 +87,7 @@ my_module
    They provide a formal, concise overview of all exported types, functions, and traits without implementation details.
    They are generated using `moon info` and useful for code review. When you have a commit that does not change public APIs, `pkg.generated.mbti` files will remain unchanged, so it is recommended to put `pkg.generated.mbti` in version control when you are done.
 
-   You can also use `moon doc @moonbitlang/core/strconv` to explore the public API of a package interactively and `moon ide peek-def 'Array::join'` to read
+   You can also use `moon ide doc @moonbitlang/core/strconv` to explore the public API of a package interactively and `moon ide peek-def 'Array::join'` to read
    the definition.
 
 # Common Pitfalls to Avoid
@@ -214,56 +214,56 @@ declare pub fn parse_yaml(s : String) -> Yaml raise
 - The `pub type Yaml` line is an intentionally opaque placeholder; the implementer chooses its representation.
 - Note the spec file can also contain normal code, not just declarations.
 
-## `moon doc` for API Discovery
+## `moon ide doc` for API Discovery
 
-**CRITICAL**: `moon doc '<query>'` is your PRIMARY tool for discovering available APIs, functions, types, and methods in MoonBit. Always prefer `moon doc` over other approaches when exploring what APIs are available, it is **more powerful and accurate** than `grep_search` or any regex-based searching tools.
+**CRITICAL**: `moon ide doc '<query>'` is your PRIMARY tool for discovering available APIs, functions, types, and methods in MoonBit. Always prefer `moon ide doc` over other approaches when exploring what APIs are available, it is **more powerful and accurate** than `grep_search` or any regex-based searching tools.
 
 
-`moon doc` uses a specialized query syntax designed for symbol lookup:
-- **Empty query**: `moon doc ''`
+`moon ide doc` uses a specialized query syntax designed for symbol lookup:
+- **Empty query**: `moon ide doc ''`
 
   - In a module: shows all available packages in current module, including dependencies and moonbitlang/core
   - In a package: shows all symbols in current package
   - Outside package: shows all available packages
 
-- **Function/value lookup**: `moon doc "[@pkg.]value_or_function_name"`
+- **Function/value lookup**: `moon ide doc "[@pkg.]value_or_function_name"`
 
-- **Type lookup**: `moon doc "[@pkg.]Type_name"` (builtin type does not need package prefix)
+- **Type lookup**: `moon ide doc "[@pkg.]Type_name"` (builtin type does not need package prefix)
 
-- **Method/field lookup**: `moon doc "[@pkg.]Type_name::method_or_field_name"`
+- **Method/field lookup**: `moon ide doc "[@pkg.]Type_name::method_or_field_name"`
 
-- **Package exploration**: `moon doc "@pkg"`
+- **Package exploration**: `moon ide doc "@pkg"`
   - Show package `pkg` and list all its exported symbols
-  - Example: `moon doc "@json"` - explore entire `@json` package
-  - Example: `moon doc "@encoding/utf8"` - explore nested package
+  - Example: `moon ide doc "@json"` - explore entire `@json` package
+  - Example: `moon ide doc "@encoding/utf8"` - explore nested package
 
-- **Globbing**: Use `*` wildcard for partial matches, e.g. `moon doc "String::*rev*"` to find all String methods with "rev" in their name
+- **Globbing**: Use `*` wildcard for partial matches, e.g. `moon ide doc "String::*rev*"` to find all String methods with "rev" in their name
 
-### `moon doc` Examples
+### `moon ide doc` Examples
 
 ````bash
 # search for String methods in standard library:
-$ moon doc "String"
+$ moon ide doc "String"
 
 type String
 
   pub fn String::add(String, String) -> String
   # ... more methods omitted ...
 
-$ moon doc "@buffer" # list all symbols in package buffer:
+$ moon ide doc "@buffer" # list all symbols in package buffer:
 moonbitlang/core/buffer
 
 fn from_array(ArrayView[Byte]) -> Buffer
 # ... omitted ...
 
-$ moon doc "@buffer.new" # list the specific function in a package:
+$ moon ide doc "@buffer.new" # list the specific function in a package:
 package "moonbitlang/core/buffer"
 
 pub fn new(size_hint? : Int) -> Buffer
   Creates ... omitted ...
 
 
-$ moon doc "String::*rev*"  # globbing
+$ moon ide doc "String::*rev*"  # globbing
 package "moonbitlang/core/string"
 
 pub fn String::rev(String) -> String
@@ -274,9 +274,9 @@ pub fn String::rev_find(String, StringView) -> Int?
   Returns ... omitted ...
 ````
 
-**Best practice**: When implementing a feature, start with `moon doc` queries to discover available APIs before writing code. This is faster and more accurate than searching through files.
+**Best practice**: When implementing a feature, start with `moon ide doc` queries to discover available APIs before writing code. This is faster and more accurate than searching through files.
 
-## `moon ide [peek-def|outline|find-references|hover|rename]` for code navigation and refactoring
+## `moon ide [doc|peek-def|outline|find-references|hover|rename]` for code navigation and refactoring
 
 For project-local symbols and navigation, use:
 - `moon ide outline .` to scan a package,
@@ -830,7 +830,7 @@ test "map literals and common operations" {
 - Passing slices to functions without allocation overhead
 - Avoiding unnecessary copies of large sequences
 
-Convert back with `.to_string()`, `.to_bytes()`, or `.to_array()` when you need ownership. (`moon doc StringView`)
+Convert back with `.to_string()`, `.to_bytes()`, or `.to_array()` when you need ownership. (`moon ide doc StringView`)
 
 ## User defined types(`enum`, `struct`)
 
