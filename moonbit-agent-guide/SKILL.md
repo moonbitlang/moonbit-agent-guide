@@ -27,7 +27,7 @@ For fast, reliable task execution, follow this order:
 
 6. **Validate in a tight loop**
    - Run `moon check` after edits.
-   - Run targeted tests with `moon test [dirname|filename] --filter 'glob'` and use `moon test --update` for snapshot changes.
+   - Run `moon test` or use `moon test --update` for snapshot changes.
 
 7. **Finalize before handoff**
    - Run `moon fmt`.
