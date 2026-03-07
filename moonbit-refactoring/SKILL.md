@@ -269,7 +269,7 @@ where {
 
 ### Tests and Docs
 - Prefer black-box tests in `*_test.mbt` or `*.mbt.md`.
-- Add docstring tests using `mbt check` fenced blocks for public APIs, and verify with `moon check`.
+- Add docstring tests using `mbt check` fenced blocks for public APIs, and verify with `moon check && moon test`.
 
 Example:
 ```mbt
