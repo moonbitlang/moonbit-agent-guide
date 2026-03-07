@@ -215,7 +215,7 @@ for i = 0, a = 1, b = 2 {
   if i >= n {
     break a
   }
-  continue i + 1, a + b, b + a
+  continue i + 1, b, b + a
 }
 ```
 - Functional loops also accept range loops, so they can be simplified:
