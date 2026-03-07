@@ -185,6 +185,20 @@ my_module
 
 - `moon new my_project` - Create new project
 - `moon run cmd/main` - Run main package
+- `moon run - < hello.mbt` - Run code from stdin (useful for quick experiments)
+  Example:
+  ```bash
+  cat hello.mbt | moon run -
+  ```
+  This allows you to quickly test small snippets of MoonBit code without creating a full project.
+  It can also be used with heredoc syntax for multi-line snippets:
+  ```bash
+  moon run - <<'EOF'
+  fn main {
+    println("Hello, MoonBit!")
+  }
+  EOF
+  ```
 - `moon build` - Build project
   (`moon run` and `moon build` both support `--target`)
 - `moon check` - Type check without building, use it REGULARLY, it is fast
