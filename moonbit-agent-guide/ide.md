@@ -2,115 +2,42 @@
 
 **ALWAYS use `moon ide` for code navigation in MoonBit projects instead of manual file searching, grep, or semantic search.**
 
-This tool provides two essential commands for precise code exploration:
+`moon ide` is the canonical navigation/refactoring entrypoint in current MoonBit toolchains.
 
-### Core Commands
+## Core Commands
 
-- `moon ide goto-definition` - Find where a symbol is defined
-- `moon ide find-references` - Find all usages of a symbol
+- `moon ide doc <query>`: Search API docs and symbols.
+- `moon ide peek-def <symbol> [--loc path[:line[:col]]]`: Show definition context for a symbol.
+- `moon ide find-references <symbol> [--loc path[:line[:col]]]`: Find usages of a symbol.
+- `moon ide rename <symbol> <new_name> [--loc path[:line[:col]]]`: Rename a symbol semantically.
+- `moon ide hover <symbol> --loc path:line[:col]`: Show type/doc info at a location.
+- `moon ide outline <dir|file>`: List top-level symbols in a package/file.
+- `moon ide analyze [path]`: Show public API usage summary of a package/module.
 
-### Query System
-
-Symbol lookup uses a two-part query system for precise results:
-
-#### 1. Symbol Name Query (`-query`)
-
-Fuzzy search for symbol names with package filtering support:
-
-```bash
-# Find any symbol named 'symbol'
-moon ide goto-definition -query 'symbol'
-
-# Find methods of a specific type
-moon ide goto-definition -query 'Type::method'
-
-# Find trait method implementations
-moon ide goto-definition -query 'Trait for Type with method'
-
-# Find symbol in specific package using @pkg prefix
-moon ide goto-definition -query '@moonbitlang/x encode'
-
-# Find symbol in multiple packages (searches in pkg1 OR pkg2)
-moon ide goto-definition -query '@username/mymodule/pkg1 @username/mymodule/pkg2 helper'
-
-# Find symbol in nested package
-moon ide goto-definition -query '@username/mymodule/mypkg helper'
-```
-
-**Supported symbols**: functions, constants, let bindings, types, structs, enums, traits
-
-**Package filtering**: Prefix your query with `@package_name` to scope the search. Multiple `@pkg` prefixes create an OR condition.
-
-#### 2. Tag-based Filtering (`-tags`)
-
-Pre-filter symbols by characteristics before name matching:
-
-**Visibility tags**:
-
-- `pub` - Public symbols
-- `pub all` - Public structs with all public fields
-- `pub open` - Public traits with all methods public
-- `priv` - Private symbols
-
-**Symbol type tags**:
-
-- `type` - Type definitions (struct, enum, typealias, abstract)
-- `error` - Error type definitions
-- `enum` - Enum definitions and variants
-- `struct` - Struct definitions
-- `alias` - Type/function/trait aliases
-- `let` - Top-level let bindings
-- `const` - Constant definitions
-- `fn` - Function definitions
-- `trait` - Trait definitions
-- `impl` - Trait implementations
-- `test` - Named test functions
-
-**Combine tags with logical operators**:
+## Practical Examples
 
 ```bash
-# Public functions only
-moon ide goto-definition -tags 'pub fn' -query 'my_func'
+# Discover APIs in standard library or project packages
+moon ide doc "String::*rev*"
+moon ide doc "@buffer"
 
-# Functions or constants
-moon ide goto-definition -tags 'fn | const' -query 'helper'
+# Peek definition and references
+moon ide peek-def Parser::read_u32_leb128
+moon ide find-references TranslationUnit
 
-# Public functions or constants
-moon ide goto-definition -tags 'pub (fn | const)' -query 'api'
+# Resolve ambiguous symbol by location
+moon ide peek-def parse --loc src/parser.mbt:42:8
+moon ide rename parse parse_expr --loc src/parser.mbt:42:8
 
-# Public types or traits
-moon ide goto-definition -tags 'pub (type | trait)' -query 'MyType'
+# Type/doc hover and package outline
+moon ide hover filter --loc hover.mbt:14
+moon ide outline .
+
+# Public API usage analysis
+moon ide analyze .
 ```
 
-### Practical Examples
+## Notes
 
-```bash
-# Find public function definition
-moon ide goto-definition -tags 'pub fn' -query 'maximum'
-
-# Find all references to a struct
-moon ide find-references -tags 'struct' -query 'Rectangle'
-
-# Find trait implementations
-moon ide goto-definition -tags 'impl' -query 'Show for MyType'
-
-# Find errors in specific package
-moon ide goto-definition -tags 'error' -query '@mymodule/parser ParseError'
-
-# Find symbol across multiple packages
-moon ide goto-definition -query '@moonbitlang/x @moonbitlang/core encode'
-
-# Combine package filtering with tags
-moon ide goto-definition -tags 'pub fn' -query '@username/myapp helper'
-```
-
-### Query Processing
-
-The tool processes queries in this order:
-
-1. Filter symbols by `-tags` conditions
-2. Extract package scope from `@pkg` prefixes in `-query`
-3. Fuzzy match remaining symbols by name
-4. Return top 3 best matches with location information
-
-**Best Practice**: Start with `-tags` to reduce noise, then use `@pkg` prefixes in `-query` to scope by package for precise navigation.
+- `moon ide goto-definition` and `-query`/`-tags` workflows are legacy and should not be used in new guidance.
+- If syntax or flags are unclear, run `moon ide <command> --help`.

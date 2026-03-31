@@ -301,7 +301,7 @@ declare pub fn parse_yaml(s : String) -> Yaml raise
 - The `pub type Yaml` line is an intentionally opaque placeholder; the implementer chooses its representation.
 - Note the spec file can also contain normal code, not just declarations.
 
-## `moon ide [doc|peek-def|outline|find-references|hover|rename]` for code navigation and refactoring
+## `moon ide [doc|peek-def|outline|find-references|hover|rename|analyze]` for code navigation and refactoring
 
 For project-local symbols and navigation, use:
 - `moon ide doc <query>` to discover available APIs, functions, types, and methods in MoonBit. Always prefer `moon ide doc` over other approaches when exploring what APIs are available, it is **more powerful and accurate** than `grep_search` or any regex-based searching tools.
@@ -310,6 +310,7 @@ For project-local symbols and navigation, use:
 - `moon ide peek-def` for inline definition context and to locate toplevel symbols.
 - `moon ide hover sym --loc filename:line:col` to get type information at a specific location.
 - `moon ide rename <symbol> <new_name> [--loc filename:line:col]` to rename a symbol project-wide. Prefer `--loc` when symbol names are ambiguous.
+- `moon ide analyze [path]` to inspect public API usage of a package or module when planning safe refactors.
 These tools save tokens and are more precise than grepping (`grep` displays results in both definitions and call sites including comments too).
 
 ### `moon ide doc` for API Discovery
@@ -475,7 +476,7 @@ Use `moon ide outline` to scan a package or file for top-level symbols and locat
 
 - `moon ide outline dir` outlines the current package directory (per-file headers)
 - `moon ide outline parser.mbt` outlines a single file
-  This is useful when you need a quick inventory of a package, or to find the right file before `goto-definition`.
+  This is useful when you need a quick inventory of a package, or to find the right file before `peek-def`.
 - `moon ide find-references TranslationUnit` finds all references to a symbol in the current module
 
 ```bash
