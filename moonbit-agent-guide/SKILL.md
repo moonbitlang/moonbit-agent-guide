@@ -11,7 +11,7 @@ For fast, reliable task execution, follow this order:
    - Confirm expected behavior, non-goals, and compatibility constraints (target backend, public API stability, performance limits).
 
 2. **Locate module/package boundaries**
-   - Find `moon.mod.json` (module root) and relevant `moon.pkg`/`moon.pkg.json` files (package boundaries and imports).
+   - Find `moon.mod.json` (module root) and relevant `moon.pkg` files (package boundaries and imports).
 
 3. **Discover APIs before coding**
    - Prefer `moon ide doc` queries to discover existing functions/types/methods before adding new code.
@@ -19,9 +19,6 @@ For fast, reliable task execution, follow this order:
 
 4. **Reliable refactoring**
    - Use `moon ide rename` for semantic refactoring. If multiple symbols share a name, add `--loc filename:line:col`.
-   - Use `#deprecated` when old APIs should warn and be removed after migration.
-   - Use `#alias(old_api, deprecated)` when temporary backward compatibility is required during migration.
-   - Remove `#deprecated` and `#alias` shims once callers are migrated and warnings are gone.
 5. **Edit minimally and package-locally**
    - Keep changes inside the correct package, use `///|` top-level delimiters, and split code into cohesive files.
 
@@ -82,7 +79,7 @@ Use the smallest playbook that matches the request.
 MoonBit uses the `.mbt` extension for source code files and interface files with the `.mbti` extension. At
 the top-level of a MoonBit project there is a `moon.mod.json` file specifying
 the metadata of the project. The project may contain multiple packages, each
-with its own `moon.pkg` or `moon.pkg.json` (legacy mode). Subdirectories may also contain `moon.mod.json`
+with its own `moon.pkg`. Subdirectories may also contain `moon.mod.json`
 files indicating that a different set of dependencies can be used for that subdir.
 
 ## Example layout
@@ -111,7 +108,7 @@ my_module
   A MoonBit *module* is like a Go module; it is a collection of packages in subdirectories, usually corresponding to a repository or project.
   Module boundaries matter for dependency management and import paths.
 
-- **Package**: characterized by a `moon.pkg` (or `moon.pkg.json`) file in each directory.
+- **Package**: characterized by a `moon.pkg` file in each directory.
   All subcommands of `moon` will
   still be executed in the directory of the module (where `moon.mod.json` is
   located), not the current package.
@@ -174,7 +171,6 @@ my_module
 - **Don't forget @package prefix when calling functions from other packages**
 - **Don't use ++ or -- (not supported)** - use `i = i + 1` or `i += 1`
 - **Don't add explicit `try` for error-raising functions** - errors propagate automatically (unlike Swift)
-- **Legacy syntax**: Older code may use `function_name!(...)` or `function_name(...)?` - these are deprecated; use normal calls and `try?` for Result conversion
 - **Prefer range `for` loops over C-style** - `for i in 0..<(n-1) {...}` and `for j in 0..=6 {...}` are more idiomatic in MoonBit
 - **Async** - MoonBit has no `await` keyword; do not add it. Async functions and tests are characterized by those which call other async functions.
   To identify a function or test as async, simply add the `async` prefix (e.g. `[pub] async fn ...`, `async test ...`).
@@ -536,23 +532,8 @@ import {...} for "test"
 import {...} for "wbtest"
 options("is-main" : true) // other options
 ```
-or moon.pkg.json (legacy mode)
-```json
-{
-  "is_main": true,                 // Creates executable when true
-  "import": [                      // Package dependencies
-    "username/hello/liba",         // Simple import, use @liba.foo() to call functions
-    {
-      "path": "moonbitlang/x/encoding",
-      "alias": "libb"              // Custom alias, use @libb.encode() to call functions
-    }
-  ],
-  "test-import": [...],            // Imports for black-box tests, similar to import
-  "wbtest-import": [...]           // Imports for white-box tests, similar to import (rarely used)
-}
-```
 
-Packages are per directory and packages without a `moon.pkg` or `moon.pkg.json` file are not recognized.
+Packages are per directory and packages without a `moon.pkg` file are not recognized.
 
 ### Package Importing (used in moon.pkg)
 
