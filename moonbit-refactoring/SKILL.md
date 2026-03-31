@@ -256,7 +256,7 @@ Example:
 for i = 0, acc = 0; i < xs.length(); {
   acc = acc + xs[i]
   i = i + 1
-} else { acc }
+} nobreak { acc }
 where {
   invariant: 0 <= i <= xs.length(),
   reasoning: (

@@ -935,7 +935,7 @@ pub fn binary_search(arr : ArrayView[Int], value : Int) -> Result[Int, Int] {
   // functional for loop:
   // initial state ; [predicate] ; [post-update] {
   // loop body with `continue` to update state
-  //} else { // exit block
+  //} nobreak { // exit block
   // }
   // predicate and post-update are optional
   for i = 0, j = len; i < j; {
@@ -946,7 +946,7 @@ pub fn binary_search(arr : ArrayView[Int], value : Int) -> Result[Int, Int] {
     } else {
       continue i, h // functional update of loop state
     }
-  } else { // exit of for loop
+  } nobreak { // exit of for loop
     if i < len && arr[i] == value {
       Ok(i)
     } else {
