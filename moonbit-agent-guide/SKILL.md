@@ -11,7 +11,7 @@ For fast, reliable task execution, follow this order:
    - Confirm expected behavior, non-goals, and compatibility constraints (target backend, public API stability, performance limits).
 
 2. **Locate module/package boundaries**
-   - Find `moon.mod.json` (module root) and relevant `moon.pkg`/`moon.pkg.json` files (package boundaries and imports).
+   - Find `moon.mod.json` (module root) and relevant `moon.pkg` files (package boundaries and imports).
 
 3. **Discover APIs before coding**
    - Prefer `moon ide doc` queries to discover existing functions/types/methods before adding new code.
@@ -82,7 +82,7 @@ Use the smallest playbook that matches the request.
 MoonBit uses the `.mbt` extension for source code files and interface files with the `.mbti` extension. At
 the top-level of a MoonBit project there is a `moon.mod.json` file specifying
 the metadata of the project. The project may contain multiple packages, each
-with its own `moon.pkg` or `moon.pkg.json` (legacy mode). Subdirectories may also contain `moon.mod.json`
+with its own `moon.pkg`. Subdirectories may also contain `moon.mod.json`
 files indicating that a different set of dependencies can be used for that subdir.
 
 ## Example layout
@@ -111,7 +111,7 @@ my_module
   A MoonBit *module* is like a Go module; it is a collection of packages in subdirectories, usually corresponding to a repository or project.
   Module boundaries matter for dependency management and import paths.
 
-- **Package**: characterized by a `moon.pkg` (or `moon.pkg.json`) file in each directory.
+- **Package**: characterized by a `moon.pkg` file in each directory.
   All subcommands of `moon` will
   still be executed in the directory of the module (where `moon.mod.json` is
   located), not the current package.
@@ -301,7 +301,7 @@ declare pub fn parse_yaml(s : String) -> Yaml raise
 - The `pub type Yaml` line is an intentionally opaque placeholder; the implementer chooses its representation.
 - Note the spec file can also contain normal code, not just declarations.
 
-## `moon ide [doc|peek-def|outline|find-references|hover|rename]` for code navigation and refactoring
+## `moon ide [doc|peek-def|outline|find-references|hover|rename|analyze]` for code navigation and refactoring
 
 For project-local symbols and navigation, use:
 - `moon ide doc <query>` to discover available APIs, functions, types, and methods in MoonBit. Always prefer `moon ide doc` over other approaches when exploring what APIs are available, it is **more powerful and accurate** than `grep_search` or any regex-based searching tools.
@@ -310,6 +310,7 @@ For project-local symbols and navigation, use:
 - `moon ide peek-def` for inline definition context and to locate toplevel symbols.
 - `moon ide hover sym --loc filename:line:col` to get type information at a specific location.
 - `moon ide rename <symbol> <new_name> [--loc filename:line:col]` to rename a symbol project-wide. Prefer `--loc` when symbol names are ambiguous.
+- `moon ide analyze [path]` to inspect public API usage of a package or module when planning safe refactors.
 These tools save tokens and are more precise than grepping (`grep` displays results in both definitions and call sites including comments too).
 
 ### `moon ide doc` for API Discovery
@@ -475,7 +476,7 @@ Use `moon ide outline` to scan a package or file for top-level symbols and locat
 
 - `moon ide outline dir` outlines the current package directory (per-file headers)
 - `moon ide outline parser.mbt` outlines a single file
-  This is useful when you need a quick inventory of a package, or to find the right file before `goto-definition`.
+  This is useful when you need a quick inventory of a package, or to find the right file before `peek-def`.
 - `moon ide find-references TranslationUnit` finds all references to a symbol in the current module
 
 ```bash
@@ -535,23 +536,8 @@ import {...} for "test"
 import {...} for "wbtest"
 options("is-main" : true) // other options
 ```
-or moon.pkg.json (legacy mode)
-```json
-{
-  "is_main": true,                 // Creates executable when true
-  "import": [                      // Package dependencies
-    "username/hello/liba",         // Simple import, use @liba.foo() to call functions
-    {
-      "path": "moonbitlang/x/encoding",
-      "alias": "libb"              // Custom alias, use @libb.encode() to call functions
-    }
-  ],
-  "test-import": [...],            // Imports for black-box tests, similar to import
-  "wbtest-import": [...]           // Imports for white-box tests, similar to import (rarely used)
-}
-```
 
-Packages are per directory and packages without a `moon.pkg` or `moon.pkg.json` file are not recognized.
+Packages are per directory and packages without a `moon.pkg` file are not recognized.
 
 ### Package Importing (used in moon.pkg)
 
@@ -953,7 +939,7 @@ pub fn binary_search(arr : ArrayView[Int], value : Int) -> Result[Int, Int] {
   // functional for loop:
   // initial state ; [predicate] ; [post-update] {
   // loop body with `continue` to update state
-  //} else { // exit block
+  //} nobreak { // exit block
   // }
   // predicate and post-update are optional
   for i = 0, j = len; i < j; {
@@ -964,7 +950,7 @@ pub fn binary_search(arr : ArrayView[Int], value : Int) -> Result[Int, Int] {
     } else {
       continue i, h // functional update of loop state
     }
-  } else { // exit of for loop
+  } nobreak { // exit of for loop
     if i < len && arr[i] == value {
       Ok(i)
     } else {
