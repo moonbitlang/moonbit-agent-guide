@@ -16,7 +16,7 @@ description: "Refactor MoonBit code to be idiomatic: shrink public APIs, convert
 **Start broad, then refine locally:**
 
 1. **Architecture first**: Review package structure, dependencies, and API boundaries.
-2. **Inventory** public APIs and call sites (`moon doc`, `moon ide find-references`).
+2. **Inventory** public APIs and call sites (`moon ide doc`, `moon ide find-references`).
 3. **Pick one refactor theme** (API minimization, package splits, pattern matching, loop style).
 4. **Apply the smallest safe change**.
 5. **Update docs/tests** in the same patch.
@@ -256,7 +256,7 @@ Example:
 for i = 0, acc = 0; i < xs.length(); {
   acc = acc + xs[i]
   i = i + 1
-} else { acc }
+} nobreak { acc }
 where {
   invariant: 0 <= i <= xs.length(),
   reasoning: (
@@ -298,11 +298,12 @@ moon coverage analyze -- -f caret -F path/to/file.mbt
 ## Moon IDE Commands
 
 ```bash
-moon doc "<query>"
+moon ide doc "<query>"
 moon ide outline <dir|file>
 moon ide find-references <symbol>
 moon ide peek-def <symbol>
-moon ide rename <symbol> -new-name <new_name>
+moon ide rename <symbol> <new_name>
+moon ide analyze [path]
 moon check
 moon test
 moon info

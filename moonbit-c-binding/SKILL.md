@@ -1,6 +1,6 @@
 ---
 name: moonbit-c-binding
-description: Guide for writing MoonBit bindings to C libraries using native FFI. Use when adding extern "c" declarations, writing C stubs with moonbit.h, configuring native-stub and link.native in moon.pkg or moon.pkg.json, choosing #borrow/#owned ownership annotations, designing callback trampolines, wrapping C pointers with external objects and finalizers, converting strings across FFI, or validating bindings with AddressSanitizer.
+description: Guide for writing MoonBit bindings to C libraries using native FFI. Use when adding extern "c" declarations, writing C stubs with moonbit.h, configuring native-stub and link.native in moon.pkg, choosing #borrow/#owned ownership annotations, designing callback trampolines, wrapping C pointers with external objects and finalizers, converting strings across FFI, or validating bindings with AddressSanitizer.
 ---
 
 # MoonBit C Binding Guide
@@ -13,7 +13,7 @@ Use this skill when:
 
 - Adding `extern "c" fn` declarations for a C library
 - Writing C stub files (`moonbit.h`, `MOONBIT_FFI_EXPORT`)
-- Configuring `moon.pkg` or `moon.pkg.json` for native builds (`native-stub`, `link.native`)
+- Configuring `moon.pkg` for native builds (`native-stub`, `link.native`)
 - Choosing `#borrow` vs ownership transfer for FFI parameters
 - Wrapping C handles with external objects and finalizers
 - Implementing callback trampolines (closures or `FuncRef`)

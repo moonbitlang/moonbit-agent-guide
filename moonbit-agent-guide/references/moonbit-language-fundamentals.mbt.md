@@ -61,7 +61,7 @@ test "everything is expression in MoonBit" {
       break Some(i) // Exit with value
     }
     i = i + 1
-  } else { // Value when loop completes normally
+  } nobreak { // Value when loop completes normally
     None
   }
   assert_eq(found, Some(2)) // Found at index 2
