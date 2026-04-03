@@ -19,9 +19,8 @@ For fast, reliable task execution, follow this order:
 
 4. **Reliable refactoring**
    - Use `moon ide rename` for semantic refactoring. If multiple symbols share a name, add `--loc filename:line:col`.
-   - Use `#deprecated` when old APIs should warn and be removed after migration.
-   - Use `#alias(old_api, deprecated)` when temporary backward compatibility is required during migration.
-   - Remove `#deprecated` and `#alias` shims once callers are migrated and warnings are gone.
+   - If you want maintain backwards compatibility, use `#alias(old_api, deprecated)`.
+   
 5. **Edit minimally and package-locally**
    - Keep changes inside the correct package, use `///|` top-level delimiters, and split code into cohesive files.
 
@@ -174,7 +173,7 @@ my_module
 - **Don't forget @package prefix when calling functions from other packages**
 - **Don't use ++ or -- (not supported)** - use `i = i + 1` or `i += 1`
 - **Don't add explicit `try` for error-raising functions** - errors propagate automatically (unlike Swift)
-- **Legacy syntax**: Older code may use `function_name!(...)` or `function_name(...)?` - these are deprecated; use normal calls and `try?` for Result conversion
+- **Legacy syntax**: Legacy code may use `function_name!(...)` or `function_name(...)?` - these are deprecated, use normal calls.
 - **Prefer range `for` loops over C-style** - `for i in 0..<(n-1) {...}` and `for j in 0..=6 {...}` are more idiomatic in MoonBit
 - **Async** - MoonBit has no `await` keyword; do not add it. Async functions and tests are characterized by those which call other async functions.
   To identify a function or test as async, simply add the `async` prefix (e.g. `[pub] async fn ...`, `async test ...`).
