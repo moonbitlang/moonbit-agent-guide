@@ -657,7 +657,7 @@ fn div(x : Int, y : Int) -> Int raise {
 ///|
 test "inspect raise function" {
   let result : Result[Int, Error] = try? div(1, 0)
-  guard result is Err(Failure(msg)) && msg.contains("Division by zero") else {
+  guard result is Err(Failure::Failure(msg)) && msg.contains("Division by zero") else {
     fail("Expected error")
   }
 }
