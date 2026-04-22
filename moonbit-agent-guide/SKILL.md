@@ -802,7 +802,7 @@ test "string interpolation basics" {
   let has_key = config["cache"] // `"` not allowed in interpolation
   println("  - Checking if 'cache' section exists: \{has_key}")
   let sb = StringBuilder::new()
-  sb.write_char('[') // dotdot for imperative method chaining
+  sb.write_char('[') 
   sb.write_view([ for x in [1, 2, 3] => "\{x}" ].join(","))
   sb.write_char(']')
   inspect(sb.to_string(), content="[1,2,3]")
