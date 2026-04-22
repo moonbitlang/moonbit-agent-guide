@@ -206,6 +206,12 @@ my_module
   Run it to see if any public interfaces changed.
   (`moon info` also supports `--target`.)
 - `moon check --target all` - Type check for all backends
+  moon check --output-json can be used with `jq` to filter the output, e.g,
+  ```
+  moon check --output-json 2>&1 | jq -R 'fromjson? | select(.message |
+      contains("unused"))'
+  ```
+  Get the diagnostics with "unused" in the message, which can be used to find unused code.
 - `moon add package` - Add dependency
 - `moon remove package` - Remove dependency
 - `moon fmt` - Format code - should be run periodically - note that the files may be rewritten
@@ -555,7 +561,7 @@ Packages are per directory and packages without a `moon.pkg` file are not recogn
 
 Example:
 
-```mbt
+```mbt nocheck
 ///|
 /// In main.mbt after importing "username/hello/liba" in `moon.pkg`
 fn main {
@@ -606,8 +612,8 @@ For more advanced topics like `conditional compilation`, `link configuration`, `
 
 MoonBit uses checked error-throwing functions, not unchecked exceptions. All errors are a subtype of `Error` and you can declare your own error types using `suberror`.
 Use `raise` in signatures to declare error types and let errors propagate by
-default. Use `try?` to convert to `Result[...]` in tests, or `try { } catch { }`
-to handle errors explicitly. Use `try!` to abort if it does raise.
+default.  `try { } catch { }`
+to handle errors explicitly. Use `try!` to abort if it does raise. Occasionally, use `try?` to convert to `Result[...]` in tests for inspection.
 
 ```mbt check
 ///|
@@ -618,7 +624,7 @@ suberror ValueError {
 
 ///|
 /// Tuple struct to hold position info
-struct Position(Int, Int) derive(ToJson, Show, Eq)
+struct Position(Int, Int) derive(ToJson, Debug, Eq)
 
 ///|
 /// ParseError is subtype of Error
@@ -627,7 +633,7 @@ pub(all) suberror ParseError {
   InvalidEof(pos~ : Position)
   InvalidNumber(pos~ : Position, String)
   InvalidIdentEscape(pos~ : Position)
-} derive(Eq, ToJson, Show)
+} derive(Eq, ToJson, Debug)
 
 ///|
 /// Functions declare what they can throw
@@ -660,8 +666,8 @@ test "inspect raise function" {
 
 ///|
 /// Propagate automatically
-fn use_parse(position~ : Position) -> Int raise ParseError {
-  let x = parse_int("123", position~) // label punning, equivalent to position=position
+fn use_parse(s : String, position~ : Position) -> Int raise ParseError {
+  let x = parse_int(s, position~) // label punning, equivalent to position=position
   // Error auto-propagates by default.
   // Unlike Swift, you do not need to mark `try` for functions that can raise
   // errors; the compiler infers it automatically. This keeps error handling
@@ -670,34 +676,17 @@ fn use_parse(position~ : Position) -> Int raise ParseError {
 }
 
 ///|
-/// Mark `raise` for all possible errors, do not care which error it is.
-/// For quick prototypes, `raise` is acceptable.
-fn use_parse2(position~ : Position) -> Int raise {
-  let x = parse_int("123", position~) // label punning
+/// Use try! to abort if it raises, no raise in the signature 
+fn use_parse2(position~ : Position) -> Int {
+  let x = try! parse_int("123", position~) // label punning
   x * 2
-}
-
-///|
-/// Convert to Result with try?
-fn safe_parse(s : String, position~ : Position) -> Result[Int, ParseError] {
-  let val1 : Result[_] = try? parse_int(s, position~) // Returns Result[Int, ParseError]
-  // try! is rarely used - it panics on error, similar to unwrap() in Rust
-  // let val2 : Int = try! parse_int(s) // Returns Int otherwise crash
-
-  // Alternative explicit handling:
-  let val3 = try parse_int(s, position~) catch {
-    err => Err(err)
-  } noraise { // noraise block is optional - handles the success case
-    v => Ok(v)
-  }
-  ...
 }
 
 ///|
 /// Handle with try-catch
 fn handle_parse(s : String, position~ : Position) -> Int {
-  try parse_int(s, position~) catch {
-    ParseError::InvalidEof => {
+  parse_int(s, position~) catch {
+    ParseError::InvalidEof(pos=_) => {
       println("Parse failed: InvalidEof")
       -1 // Default value
     }
@@ -710,7 +699,7 @@ Important: When calling a function that can raise errors, if you only want to
 propagate the error, you do not need any marker; the compiler infers it.
 Note that all `async` functions automatically can raise errors without explicitly stating this.
 
-## Integers, Char
+## Integer, Char and overloaded literals
 
 MoonBit supports `Byte`, `Int16`, `Int`, `UInt16`, `UInt`, `Int64`, `UInt64`, etc.
 When the type is known, the literal can be overloaded:
@@ -718,24 +707,27 @@ When the type is known, the literal can be overloaded:
 ```mbt check
 ///|
 test "integer and char literal overloading disambiguation via type in the current context" {
-  let a0 = 1 // a is Int by default
   let (int, uint, uint16, int64, byte) : (Int, UInt, UInt16, Int64, Byte) = (
     1, 1, 1, 1, 1,
   )
+  // The literal `1` is overloaded based on the expected type in the current context.
+  // compile time error if the literal cannot be represented in the target type, 
+  // e.g. let a7 : Byte = 256 // ❌ won't compile, 256 exceeds Byte max value 255
   assert_eq(int, uint16.to_int())
-  let a1 : Int = 'b' // this also works, a5 will be the unicode value
-  let a2 : Char = 'b'
-
+  let (a1, a2, a3) : (Int, Char, UInt16) = ('b', 'b', 'b')
+  // char literal overloading, `a1` will be the unicode value of 'b', 
+  // compile time error when the literal cannot be represented in the target type 
+  // e.g, let a6 : UInt16 = '𐍈' // ❌ won't compile, '𐍈' is U+10348, which exceeds UInt16 max value 0xffff  
+  let a4 : Byte = b'b' // Byte literal
 }
 ```
 ## Bytes (Immutable)
 
 ```mbt check
 ///|
-test "bytes literals overloading and indexing" {
+test "bytes literals" {
   let b0 : Bytes = b"abcd"
-  let b1 : Bytes = "abcd" // b" prefix is optional, when we know the type
-  let b2 : Bytes = [0xff, 0x00, 0x01] // Array literal overloading
+  let b1 : Bytes = [0xff, 0x00, 0x01] // Array literal overloading
   guard b0 is [b'a', ..] && b0[1] is b'b' else {
     // Bytes can be pattern matched as BytesView and indexed
     fail("unexpected bytes content")
@@ -747,11 +739,14 @@ test "bytes literals overloading and indexing" {
 ```mbt check
 ///|
 test "array literals overloading: disambiguation via type in the current context" {
-  let a0 : Array[Int] = [1, 2, 3] // resizable
-  let a1 : FixedArray[Int] = [1, 2, 3] // Fixed size
-  let a2 : ReadOnlyArray[Int] = [1, 2, 3]
-  let a3 : ArrayView[Int] = [1, 2, 3]
-
+  let (a0, a1, a2, a3) : (
+    Array[Int],
+    FixedArray[Int],
+    ReadOnlyArray[Int],
+    ArrayView[Int],
+  ) = ([1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3])
+  // The literal `[1, 2, 3]` is overloaded based on the expected type in the current context.
+  // Defaults to Array[_]
 }
 ```
 ## String (Immutable UTF-16)
@@ -807,10 +802,9 @@ test "string interpolation basics" {
   let has_key = config["cache"] // `"` not allowed in interpolation
   println("  - Checking if 'cache' section exists: \{has_key}")
   let sb = StringBuilder::new()
-  sb
-  ..write_char('[') // dotdot for imperative method chaining
-  ..write_view([1, 2, 3].map(x => "\{x}").join(","))
-  ..write_char(']')
+  sb.write_char('[') // dotdot for imperative method chaining
+  sb.write_view([ for x in [1, 2, 3] => "\{x}" ].join(","))
+  sb.write_char(']')
   inspect(sb.to_string(), content="[1,2,3]")
 }
 ```
@@ -905,7 +899,7 @@ Convert back with `.to_string()`, `.to_bytes()`, or `.to_array()` when you need 
 enum Tree[T] {
   Leaf(T) // Unlike Rust, no comma here
   Node(left~ : Tree[T], T, right~ : Tree[T]) // enum can use labels
-} derive(Show, ToJson) // derive traits for Tree
+} derive(Debug, ToJson) // derive traits for Tree
 
 ///|
 pub fn Tree::sum(tree : Tree[Int]) -> Int {
@@ -920,11 +914,22 @@ pub fn Tree::sum(tree : Tree[Int]) -> Int {
 struct Point {
   x : Int
   y : Int
-} derive(Show, ToJson) // derive traits for Point
+} derive(Debug, ToJson) // derive traits for Point
+
+///|
+pub fn Point::Point(x~ : Int, y~ : Int) -> Point {
+  { x, y }
+}
 
 ///|
 test "user defined types: enum and struct" {
-  @json.inspect(Point::{ x: 10, y: 20 }, content={ "x": 10, "y": 20 })
+  json_inspect(Point(x=10, y=20), content={ "x": 10, "y": 20 })
+  debug_inspect(
+    Point(x=10, y=20),
+    content=(
+      #|{ x: 10, y: 20 }
+    ),
+  )
 }
 ```
 
@@ -956,10 +961,10 @@ pub fn binary_search(arr : ArrayView[Int], value : Int) -> Result[Int, Int] {
       Err(i)
     }
   } where {
-    invariant: 0 <= i && i <= j && j <= len,
-    invariant: i == 0 || arr[i - 1] < value,
-    invariant: j == len || arr[j] >= value,
-    reasoning: (
+    proof_invariant: 0 <= i && i <= j && j <= len,
+    proof_invariant: i == 0 || arr[i - 1] < value,
+    proof_invariant: j == len || arr[j] >= value,
+    proof_reasoning: (
       #|For a sorted array, the boundary invariants are witnesses:
       #|  - `arr[i-1] < value` implies all arr[0..i) < value (by sortedness)
       #|  - `arr[j] >= value` implies all arr[j..len) >= value (by sortedness)
@@ -1074,7 +1079,6 @@ If you want a defaulted optional parameter, write `b? : Int = 1`, not `b? : Int?
 fn f_misuse(a? : Int?, b? : Int = 1) -> Unit {
   let _ : Int?? = a // rarely intended
   let _ : Int = b
-
 }
 // How to fix: declare `(a? : Int, b? : Int = 1)` directly.
 
@@ -1082,7 +1086,6 @@ fn f_misuse(a? : Int?, b? : Int = 1) -> Unit {
 fn f_correct(a? : Int, b? : Int = 1) -> Unit {
   let _ : Int? = a
   let _ : Int = b
-
 }
 
 ///|
