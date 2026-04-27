@@ -25,7 +25,7 @@ For fast, reliable task execution, follow this order:
    - Keep changes inside the correct package, use `///|` top-level delimiters, and split code into cohesive files.
 
 6. **Validate in a tight loop**
-   - Run `moon check` after edits.
+   - Run `moon check` after edits, adding `--warn-list +unnecessary_annotation` to enable warning 73 for redundant annotations and over-qualified constructors (`--warn-list +73` is equivalent).
    - Run targeted tests with `moon test [dirname|filename] --filter 'glob'` and use `moon test --update` for snapshot changes.
 
 7. **Finalize before handoff**
