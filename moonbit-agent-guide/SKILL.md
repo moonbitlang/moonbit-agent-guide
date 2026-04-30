@@ -636,6 +636,68 @@ To add a new package `fib` under `.`:
 
 For more advanced topics like `conditional compilation`, `link configuration`, `warning control`, and `pre-build commands`, see `references/advanced-moonbit-build.md`.
 
+## Async IO
+
+Asynchronous programming uses compiler support plus the `moonbitlang/async` runtime. The runtime supports the native backend best, has limited JavaScript support for IO-independent APIs, and does not support WebAssembly yet. For async IO examples, prefer native. Use `moon add moonbitlang/async@<version>` and `moon ide doc "@async"` to explore the API.
+
+1. Add the dependency and pin the native target in `moon.mod.json`:
+   ```json
+   {
+     "deps": { "moonbitlang/async": "0.18.1" },
+     "preferred-target": "native"
+   }
+   ```
+2. In the executable's `moon.pkg`, set `is-main`, restrict to native, and import what you need:
+   ```
+   import {
+     "moonbitlang/async",
+     "moonbitlang/async/stdio",
+   }
+   supported_targets = "+native"
+   options("is-main": true)
+   ```
+3. Define `async fn main` (not `fn main`). Spawn concurrent tasks via `with_task_group` for structured concurrency — when the group returns, all spawned tasks have terminated:
+   ```mbt nocheck
+   async fn main {
+     @async.with_task_group(group => {
+       group.spawn_bg(() => {
+         @async.sleep(50)
+         @stdio.stdout.write("A\n")
+       })
+       group.spawn_bg(() => {
+         @async.sleep(20)
+         @stdio.stdout.write("B\n")
+       })
+     })
+   }
+   ```
+
+Use the arrow form `() => { ... }` for spawned closures — async-ness is inferred from context. Plain `fn() { ... }` triggers a `deprecated_syntax` warning.
+
+### Async tests
+
+Use `async test` for tests that call async functions. The package containing the test must import `moonbitlang/async` for the test mode; import any async subpackages used by the test in the same `for "test"` block.
+
+```
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/stdio",
+} for "test"
+```
+
+```mbt check
+///|
+async test "sleep completes" {
+  @async.sleep(1)
+  inspect("done", content="done")
+}
+```
+
+- There is no `await` keyword. Inside an `async test`, call async functions normally.
+- Async tests run in parallel by default. Avoid shared ports, files, environment variables, and global mutable state unless each test isolates its resources.
+- Run with `moon test --target native` unless `moon.mod.json` sets `"preferred-target": "native"`. Use `moon test -v` when checking test names or async scheduling behavior.
+- In `README.mbt.md` and docstrings, `mbt check` blocks may contain `async test` blocks; make sure the package imports `moonbitlang/async` for the relevant test mode.
+
 # MoonBit Language Tour
 
 ## Core facts
