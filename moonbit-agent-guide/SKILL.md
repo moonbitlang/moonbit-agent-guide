@@ -548,6 +548,14 @@ moon add moonbitlang/x@0.4.6  # Add specific version
 moon update                   # Update package index
 ```
 
+### Browsing Third-Party Source (`moon fetch`)
+
+`moon fetch <author>/<module>[@<version>]` downloads a package's source into `.repos/<author>/<module>/<version>/` for offline reading (examples, internals, generated `.mbti`). It does NOT add the package to `moon.mod.json` — use `moon add` for that. Add `.repos/` to `.gitignore`.
+
+```sh
+moon fetch moonbitlang/async@0.18.1   # browse source/examples without taking a dependency
+```
+
 ### Typical Module configurations (`moon.mod.json`)
 
 ```json
