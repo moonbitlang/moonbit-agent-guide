@@ -640,7 +640,8 @@ For more advanced topics like `conditional compilation`, `link configuration`, `
 
 Asynchronous programming uses compiler support plus the `moonbitlang/async` runtime. The runtime supports the native backend best, has limited JavaScript support for IO-independent APIs, and does not support WebAssembly yet. For async IO examples, prefer native. Use `moon add moonbitlang/async@<version>` and `moon ide doc "@async"` to explore the API.
 
-User-facing subpackages: `@async` (core: tasks, timers, cancellation), `@async/aqueue`, `@async/semaphore`, `@async/cond_var`, `@async/io`, `@async/stdio`, `@async/pipe`, `@async/fs`, `@async/process`, `@async/socket`, `@async/tls`, `@async/http`, `@async/websocket`, `@async/signal`. Each must be imported separately in `moon.pkg`.
+User-facing subpackages: `@async` (core: tasks, timers, cancellation), `@async/aqueue`, `@async/fs, `@async/stdio`, `@async/websocket`, ..etc.
+Each must be imported separately in `moon.pkg`.
 
 1. Add the dependency and pin the native target in `moon.mod.json`:
    ```json
