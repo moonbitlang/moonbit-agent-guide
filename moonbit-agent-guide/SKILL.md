@@ -371,7 +371,9 @@ These tools save tokens and are more precise than grepping (`grep` displays resu
   - Show package `pkg` and list all its exported symbols
   - Example: `moon ide doc "@json"` - explore entire `@json` package
   - Example: `moon ide doc "@encoding/utf8"` - explore nested package
-
+- **Multiple queries**: `moon ide doc "query1" "query2" ...`
+  - Run multiple queries in one invocation and combine results
+  - Example: `moon ide doc "String" "Array" "@json"` to explore multiple types and a package at once
 - **Globbing**: Use `*` wildcard for partial matches, e.g. `moon ide doc "String::*rev*"` to find all String methods with "rev" in their name
 
 #### `moon ide doc` Examples
