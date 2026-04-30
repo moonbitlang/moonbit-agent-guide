@@ -640,6 +640,8 @@ For more advanced topics like `conditional compilation`, `link configuration`, `
 
 Asynchronous programming uses compiler support plus the `moonbitlang/async` runtime. The runtime supports the native backend best, has limited JavaScript support for IO-independent APIs, and does not support WebAssembly yet. For async IO examples, prefer native. Use `moon add moonbitlang/async@<version>` and `moon ide doc "@async"` to explore the API.
 
+User-facing subpackages: `@async` (core: tasks, timers, cancellation), `@async/aqueue`, `@async/semaphore`, `@async/cond_var`, `@async/io`, `@async/stdio`, `@async/pipe`, `@async/fs`, `@async/process`, `@async/socket`, `@async/tls`, `@async/http`, `@async/websocket`, `@async/signal`. Each must be imported separately in `moon.pkg`.
+
 1. Add the dependency and pin the native target in `moon.mod.json`:
    ```json
    {
@@ -656,7 +658,7 @@ Asynchronous programming uses compiler support plus the `moonbitlang/async` runt
    supported_targets = "+native"
    options("is-main": true)
    ```
-3. Define `async fn main` (not `fn main`). Spawn concurrent tasks via `with_task_group` for structured concurrency — when the group returns, all spawned tasks have terminated:
+3. Define `async fn main` (not `fn main`). Spawn concurrent tasks via `with_task_group` for structured concurrency:
    ```mbt nocheck
    async fn main {
      @async.with_task_group(group => {
@@ -672,7 +674,18 @@ Asynchronous programming uses compiler support plus the `moonbitlang/async` runt
    }
    ```
 
-Use the arrow form `() => { ... }` for spawned closures — async-ness is inferred from context. Plain `fn() { ... }` triggers a `deprecated_syntax` warning.
+**Structured-concurrency contract for `with_task_group`:**
+
+- When `with_task_group` returns, every task spawned in the group is guaranteed to have terminated — no orphan tasks, no resource leaks.
+- If any spawned task fails (and was spawned without `allow_failure=true`), the whole group fails: every other task in the group is cancelled, and the error propagates out of `with_task_group`.
+- Cancelled tasks are not considered failures; they raise a cancellation error but don't trigger peer cancellation.
+
+**Closure syntax for `spawn_bg` / `spawn`:**
+
+- ✅ `() => { ... }` — idiomatic; async-ness is inferred from context.
+- ✅ `async fn() { ... }` — explicit annotation; equivalent to the arrow form.
+- ⚠️ `fn() { ... }` — triggers `Warning [0027] deprecated_syntax`: "this `fn` is asynchronous but not annotated with `async`". Don't use.
+- ❌ `async () => ...`, `fn() async { ... }`, `fn(args) async { ... }` — all parse errors. `async` only goes before `fn`, never before an arrow lambda or after a parameter list.
 
 ### Async tests
 
@@ -693,7 +706,7 @@ async test "sleep completes" {
 }
 ```
 
-- There is no `await` keyword. Inside an `async test`, call async functions normally.
+- There is no `await` keyword (similar to functions that raise errors). Inside an `async test`, call async functions normally.
 - Async tests run in parallel by default. Avoid shared ports, files, environment variables, and global mutable state unless each test isolates its resources.
 - Run with `moon test --target native` unless `moon.mod.json` sets `"preferred-target": "native"`. Use `moon test -v` when checking test names or async scheduling behavior.
 - In `README.mbt.md` and docstrings, `mbt check` blocks may contain `async test` blocks; make sure the package imports `moonbitlang/async` for the relevant test mode.
