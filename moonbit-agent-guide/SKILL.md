@@ -219,7 +219,7 @@ my_module
   `moon run -c`. Use `--target native` (the default `wasm-gc` does not support
   `async fn main` or `@stdio.stdin`), a quoted heredoc (`<<'EOF'`) so the shell
   does not expand `$`/backticks in the source, and a de-indented closing `EOF`:
-  ```
+  ````
 moon check --output-json 2>&1 | moon run --target native -c "$(cat <<'EOF'
 import {
   "moonbitlang/async",
@@ -244,8 +244,12 @@ async fn main {
 }
 EOF
 )"
-  ```
+  ````
   Get the diagnostics with "unused" in the message, which can be used to find unused code.
+- `moon explain` - Show built-in documentation for compiler diagnostics.
+  - `moon explain --diagnostics` lists warning mnemonics and IDs.
+  - `moon explain --diagnostics 31` explains warning 31 (`unused_optional_argument`).
+  - `moon explain --diagnostics unused_optional_argument` explains the same warning by mnemonic.
 - `moon add package` - Add dependency
 - `moon remove package` - Remove dependency
 - `moon fmt` - Format code - should be run periodically - note that the files may be rewritten
