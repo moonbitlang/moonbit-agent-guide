@@ -918,7 +918,7 @@ test "string interpolation basics" {
   let name : String = "Moon"
   let config = { "cache": 123 }
   let version = 1.0
-  println("Hello \{name} v\{version}") // "Hello Moon v1.0"
+  println("Hello \{name} v\{version}") // "Hello Moon v1"
   // ❌ Wrong - quotes inside interpolation not allowed:
   // println("  - Checking if 'cache' section exists: \{config["cache"]}")
 
@@ -930,10 +930,30 @@ test "string interpolation basics" {
   sb.write_view([ for x in [1, 2, 3] => "\{x}" ].join(","))
   sb.write_char(']')
   inspect(sb.to_string(), content="[1,2,3]")
+  let x = 42
+  let streamed = StringBuilder::new()
+  streamed <+ "hello \{x}"
+  inspect(streamed.to_string(), content="hello 42")
 }
 ```
 
 Expressions inside `\{}` can only be _basic expressions_ (no quotes, newlines, or nested interpolations). String literals are not allowed as they make lexing too difficult.
+
+String interpolation can also be streamed directly into a `Logger`/`StringBuilder`-style writer with `<+`:
+
+```moonbit
+writer <+ "hello \{x}"
+```
+
+This expands to calls on the writer:
+
+```moonbit
+writer.write_string("hello ")
+writer.write_object(x)
+```
+
+Literal string segments use `write_string`; interpolated expressions use `write_object` (not `write`) and therefore require `Show`.
+Because this uses `write_object`, interpolated `String` values are written with their `Show` representation, e.g. `"Moon"` with quotes. Use `write_string` directly when raw string contents are needed.
 
 
 ### Multiple line strings
