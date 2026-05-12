@@ -925,16 +925,35 @@ test "string interpolation basics" {
   // ✅ Correct - extract to variable first:
   let has_key = config["cache"] // `"` not allowed in interpolation
   println("  - Checking if 'cache' section exists: \{has_key}")
-  let sb = StringBuilder::new()
-  sb.write_char('[') 
+  let sb = StringBuilder()
+  sb.write_char('[')
   sb.write_view([ for x in [1, 2, 3] => "\{x}" ].join(","))
   sb.write_char(']')
-  inspect(sb.to_string(), content="[1,2,3]")
+  inspect(sb, content="[1,2,3]")
+  let x = 42
+  let streamed = StringBuilder()
+  streamed <+ "hello \{x}"
+  inspect(streamed, content="hello 42")
 }
 ```
 
 Expressions inside `\{}` can only be _basic expressions_ (no quotes, newlines, or nested interpolations). String literals are not allowed as they make lexing too difficult.
 
+String interpolation can also be streamed directly into a `Logger`/`StringBuilder`-style writer with `<+`:
+
+```mbt nocheck
+writer <+ "hello \{x}"
+```
+
+This expands to calls on the writer:
+
+```mbt nocheck
+writer.write_string("hello ")
+writer.write(x)
+```
+
+Literal string segments use `write_string`; interpolated expressions use `write`.
+The expansion is macro-style: it depends on how the `writer` type implements the `write_string` and `write` methods. Types such as HTMLBuilder or JSONBuilder can support interpolation and streaming with the same syntax but different semantics.
 
 ### Multiple line strings
 
