@@ -954,6 +954,7 @@ writer.write(x)
 
 Literal string segments use `write_string`; interpolated expressions use `write`.
 The expansion is macro-style: it depends on how the `writer` type implements the `write_string` and `write` methods. Types such as HTMLBuilder or JSONBuilder can support interpolation and streaming with the same syntax but different semantics.
+Because MoonBit allows local methods on foreign types, a package can adapt an existing writer type to this syntax by adding local `write_string` and `write` methods.
 
 ### Multiple line strings
 
