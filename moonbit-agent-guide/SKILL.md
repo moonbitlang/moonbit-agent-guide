@@ -918,7 +918,7 @@ test "string interpolation basics" {
   let name : String = "Moon"
   let config = { "cache": 123 }
   let version = 1.0
-  println("Hello \{name} v\{version}") // "Hello Moon v1.0"
+  println("Hello \{name} v\{version}") // "Hello Moon v1"
   // ❌ Wrong - quotes inside interpolation not allowed:
   // println("  - Checking if 'cache' section exists: \{config["cache"]}")
 
