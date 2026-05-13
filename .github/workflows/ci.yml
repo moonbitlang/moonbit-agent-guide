@@ -8,12 +8,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [nightly, latest]
+    name: test (${{ matrix.channel }})
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install MoonBit (nightly)
+      - name: Install MoonBit (${{ matrix.channel }})
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s nightly
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s ${{ matrix.channel }}
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: moon version
