@@ -964,7 +964,7 @@ test "map literals and common operations" {
   // Map literal syntax
   let map : Map[String, Int] = { "a": 1, "b": 2, "c": 3 }
   let empty : Map[String, Int] = {} // Empty map, preferred
-  let also_empty : Map[String, Int] = Map([], capacity=0)
+  let also_empty : Map[String, Int] = Map([])
   // From array of pairs
   let from_pairs : Map[String, Int] = Map::from_array([("x", 1), ("y", 2)])
 
@@ -1168,11 +1168,9 @@ fn g(
   let _ : Int = required
   let _ : Int? = optional
   let _ : Int = optional_with_default
-  let optional_str = match optional {
-    None => "None"
-    Some(v) => "Some(\{v})"
-  }
-  "\{positional},\{required},\{optional_str},\{optional_with_default}"
+  // `to_repr` (from the prelude `Debug` trait) renders Option via the
+  // non-deprecated `Show for Repr`, avoiding the deprecated `Show for Option`.
+  "\{positional},\{required},\{to_repr(optional)},\{optional_with_default}"
 }
 
 ///|
@@ -1189,14 +1187,7 @@ Callers still must pass it (as `None`/`Some(...)`).
 ```mbt check
 ///|
 fn with_config(a : Int?, b : Int?, c : Int) -> String {
-  fn show_opt(o : Int?) -> String {
-    match o {
-      None => "None"
-      Some(v) => "Some(\{v})"
-    }
-  }
-
-  "\{show_opt(a)},\{show_opt(b)},\{c}"
+  "\{to_repr(a)},\{to_repr(b)},\{c}"
 }
 
 ///|
