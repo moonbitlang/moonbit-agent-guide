@@ -25,4 +25,4 @@ jobs:
         run: moon version --all
 
       - name: moon test moonbit-agent-guide/SKILL.mbt.md
-        run: moon test moonbit-agent-guide/SKILL.mbt.md
+        run: moon test moonbit-agent-guide/SKILL.mbt.md --warn-list -1-2-3-6-7-28-68 --deny-warn
