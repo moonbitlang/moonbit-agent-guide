@@ -1111,8 +1111,8 @@ pub fn binary_search(arr : ArrayView[Int], value : Int) -> Result[Int, Int] {
 ///|
 test "functional for loop control flow" {
   let arr : Array[Int] = [1, 3, 5, 7, 9]
-  inspect(binary_search(arr, 5), content="Ok(2)") // Array to ArrayView implicit conversion when passing as arguments
-  inspect(binary_search(arr, 6), content="Err(3)")
+  debug_inspect(binary_search(arr, 5), content="Ok(2)") // Array to ArrayView implicit conversion when passing as arguments
+  debug_inspect(binary_search(arr, 6), content="Err(3)")
   // for iteration is supported too
   for i, v in arr {
     println("\{i}: \{v}") // `i` is index, `v` is value
