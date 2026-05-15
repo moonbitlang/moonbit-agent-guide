@@ -1,4 +1,4 @@
 interface:
   display_name: "OCaml to MoonBit Migration"
-  short_description: "Port OCaml code to idiomatic MoonBit"
-  default_prompt: "Use $ocaml2moonbit-migration to port this OCaml module to idiomatic MoonBit with tests."
+  short_description: "Port OCaml projects to idiomatic MoonBit"
+  default_prompt: "Use $ocaml2moonbit-migration to migrate this OCaml module to idiomatic MoonBit with behavior-preserving tests."

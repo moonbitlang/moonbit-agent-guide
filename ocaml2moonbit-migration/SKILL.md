@@ -1,115 +1,84 @@
 ---
 name: ocaml2moonbit-migration
-description: Port OCaml codebases, modules, libraries, tests, or algorithms to idiomatic MoonBit. Use when translating OCaml syntax, module structure, exceptions, variants, records, parsers, byte/string logic, tests, or public APIs into MoonBit while preserving behavior and improving modularity.
+description: Guide for migrating OCaml projects, libraries, modules, and test suites to idiomatic MoonBit. Use when translating OCaml code to MoonBit, planning a large OCaml-to-MoonBit port, preserving byte/string-heavy behavior, replacing OCaml variants/records/exceptions/refs/arrays, mapping OCaml APIs to MoonBit packages, or building verification and test strategy for a migration.
 ---
 
 # OCaml to MoonBit Migration
 
-## Goal
+Port behavior, data invariants, and public contracts first. Translate syntax only after the source semantics are classified.
 
-Port behavior first, then make it idiomatic MoonBit. Avoid line-by-line transliteration when it preserves OCaml incidental structure instead of the program's invariants.
+## Reference
 
-## Workflow
+Use [references/OCaml2MoonBit.md](references/OCaml2MoonBit.md) as the detailed fact bank. It contains verified probes and migration notes from a large real-world port.
 
-1. **Inventory behavior before editing**
-   - Identify public OCaml APIs, core data types, exceptions, parser/IO boundaries, and known edge cases.
-   - Keep reference outputs from the OCaml implementation when possible: golden strings, serialized bytes, parse trees, error cases, and round trips.
-   - Decide what does not need compatibility. If there are no external users, prefer simpler MoonBit APIs over compatibility shims.
+Load or search that reference when the task touches:
 
-2. **Port stable slices**
-   - Start with pure data models and small pure functions.
-   - Add focused tests immediately for each slice.
-   - Move parsers, serializers, IO, native stubs, and large orchestration after the core model is checked.
+- byte/text boundaries, encodings, `Bytes`, `BytesView`, or `String`
+- integer width, wrapping, shifts, unsigned ordering, byte codecs, or float rendering
+- variants, records, array/view ownership, tables, callbacks, labelled/default arguments, or pattern matching
+- checked errors, raising callbacks, exception tests, async I/O, native-only code, or MoonBit test layout
 
-3. **Use MoonBit package boundaries deliberately**
-   - A MoonBit package is a directory with `moon.pkg`; files are only organizational, not modules.
-   - Keep MoonBit source in `///|` blocks and move blocks freely when reorganizing files.
-   - Split files freely inside a package. Split packages only when dependencies and ownership are clear.
-   - A package cannot add methods to a type owned by another package. Move the owning type and its main methods together, or use free functions/wrapper types as the extension point.
-   - Prefer explicit `@pkg.name` during broad migrations. Remove temporary `using` imports once call sites are updated.
+When using a rule from the reference, prefer the documented probe if it directly fits. If the local MoonBit toolchain is newer, rerun a small `moon run -c` probe before relying on behavior that is likely to change.
 
-4. **Validate after each migration slice**
-   - Run `moon check` frequently.
-   - Run targeted tests for the migrated area, then `moon test`.
-   - Run `moon info && moon fmt` before review. Inspect generated `.mbti` diffs to confirm public API changes are intentional.
-   - For native or FFI-sensitive code, also run `moon test --target native` and native warning checks.
+## Migration Workflow
 
-## OCaml to MoonBit Mapping
+1. Inventory the OCaml module boundary: public types, functions, exceptions, optional arguments, mutable state, lazy/deferred state, C/Unix/filesystem dependencies, and existing tests or golden fixtures.
+2. Classify every OCaml `string` by meaning before choosing a MoonBit type. Do this field by field, even inside the same OCaml record.
+3. Choose MoonBit package boundaries and imports before coding. Add imports to `moon.pkg`; MoonBit source files do not use OCaml-style `open`.
+4. Port one behavioral slice at a time with tests. Prefer a thin public API skeleton, then fill parser/serializer/algorithm internals behind it.
+5. Probe uncertain language or library behavior with `moon run -c` and, when needed, a small OCaml toplevel probe. Keep probes minimal and copy reusable discoveries back into the reference.
+6. Finish each slice with targeted tests, then `moon check --warn-list +73`, `moon test`, `moon info`, and `moon fmt` when the repository is a MoonBit project.
 
-### Modules and Packages
+## Type Choices
 
-- OCaml modules map either to MoonBit packages or cohesive files inside one package. Do not create one package per OCaml file by default.
-- OCaml functors usually become explicit functions, records of operations, traits, or package-level specialization. Prefer the simplest shape needed by the call sites.
-- If an OCaml module mainly namespaces helpers, keep those helpers package-private unless downstream packages need them.
+Default mappings are semantic, not mechanical:
 
-### Types
+| OCaml use | MoonBit default |
+|---|---|
+| binary payload, file contents, compressed/encrypted/checksummed data, parser input | `Bytes` or `BytesView` |
+| human-readable text, diagnostics, labels that are truly Unicode | `String` |
+| single byte with known range | `Byte` |
+| indexes, counts, small identifiers, deliberate signed 32-bit wrapping | `Int` |
+| file offsets, serialized positions, large object numbers | `Int64` or `UInt64` |
+| OCaml `array` with fixed length | `FixedArray[T]` |
+| mutable growable builder | `Array[T]` |
+| read-only sequence parameter | `ArrayView[T]` or `BytesView` |
+| OCaml `ref` | `Ref[T]` |
+| OCaml variant | `enum`, often `priv enum` for internal states |
+| OCaml record | `struct`, with `{ ..old, field: value }` for immutable update |
+| OCaml exception flow | `suberror` plus checked `raise` |
+| lazy/deferred state | explicit `enum` state machine |
 
-- OCaml variants map naturally to MoonBit enums. Prefer regular constructors with typed pattern matching.
-- OCaml records map to MoonBit structs. Mark fields mutable only when mutation is part of the invariant.
-- Replace polymorphic variants with explicit enums unless callers truly need open extension.
-- Use `derive(Debug, Eq, ToJson)` only when tests, diagnostics, or serialization actually need it.
+Do not convert OCaml `string` to MoonBit `String` by default. OCaml `String.length` counts bytes; MoonBit `String::length()` counts UTF-16 code units. Use `Bytes`/`BytesView` for byte-addressed formats and named encoding helpers for the few places that legitimately cross into text.
 
-### Errors
+## Porting Rules
 
-- Map OCaml exceptions to a domain error enum plus `raise` on functions that can fail.
-- Let MoonBit error propagation work through raising calls. Do not add explicit `try` just to propagate.
-- Use `try?` only when converting a raising call into `Result`.
-- Keep error constructors precise enough for tests to assert specific failures.
-- When the expected error type is known, omit redundant enum prefixes:
-
-```mbt
-guard result is Err(ParseExpected) else { fail("expected parse error") }
-```
-
-### Labels and Optional Arguments
-
-- OCaml labelled arguments map to MoonBit labelled arguments such as `name~ : T`.
-- OCaml optional arguments map to `name? : T = default` only when callers may omit them.
-- If every call site supplies the value, use a required labelled argument instead. Warning `0032` points this out.
-- Avoid carrying compatibility-only optional defaults when the migrated API has no external users.
-
-### Collections and Bytes
-
-- OCaml lists are often better as `Array[T]` or `ArrayView[T]` in MoonBit, especially for parser output, bytes, and repeated PDF-like structures.
-- Use `BytesView`, `StringView`, and `ArrayView` for borrowed inputs.
-- Use owned `Bytes` or `Array[T]` only when the result must outlive the input or be mutated independently.
-- Prefer structured parsers and byte cursors over ad hoc string slicing for binary formats.
-
-### Control Flow
-
-- Convert recursive OCaml loops to MoonBit `for` loops with explicit state when that is clearer or avoids stack concerns.
-- Use pattern matching and `is` guards for concise validation paths.
-- Prefer direct array/string/view patterns where MoonBit supports them.
+- Build binary output with `Array[Byte]`, append ASCII syntax through `@ascii.encode(text)[:]`, append payloads from `BytesView`, and freeze once with `Bytes::from_array`.
+- Prefer `BytesView` for read-only byte APIs. Convert to owned `Bytes` only at explicit ownership, storage, mutation, or FFI boundaries.
+- Keep 32-bit wrapping behavior explicit. MoonBit `Int` wraps at signed 32-bit boundaries; promote to `Int64`/`UInt64` for serialized lengths, offsets, and wide accumulators.
+- Treat unsigned serialized keys as unsigned. If high-bit packed values are sorted or binary-searched, compare through `UInt`, `UInt64`, or a deliberately matching ordering.
+- Do not use `Double::to_string()` as a drop-in replacement for OCaml float serialization. Add an explicit formatter when snapshots, digests, or file grammars require OCaml spelling.
+- Port OCaml `List.map`/`Array.map` with raising mappers as explicit loops in a raising function; comprehension bodies cannot call error-raising functions.
+- Put specific match arms before guarded wildcard or broad tuple cases. MoonBit match arms run top to bottom.
+- Include `raise` in callback parameter types and anonymous callback literals when the OCaml callback may throw or call fallible APIs.
+- Use labelled defaults for OCaml optional arguments, and forward same-named optional labels with `label~`.
+- Keep pure core transforms synchronous. Put filesystem/network wrappers at async or native-only package boundaries when using `moonbitlang/async`.
 
 ## Testing Strategy
 
-- Preserve behavior with golden tests before changing API shape.
-- Cover both success and failure paths: empty input, truncated input, malformed syntax, unsupported features, boundary integers, nested structures, duplicate references, and round trips.
-- Use assertion tests for stable behavior. Use snapshots for large serialized outputs when exact bytes/text matter.
-- Keep blackbox tests qualified with `@package` when testing exported APIs.
-- Keep whitebox tests for parser internals, reconstruction logic, and migration-only invariants that are not public API.
+Create migration tests with the same ownership boundary as the bug risk:
 
-## Refactoring After the Port
+- Use `*_test.mbt` for black-box public API behavior and `*_wbtest.mbt` for private parser or table helpers.
+- Pair focused edge tests with at least one round-trip test for parser/serializer, encoder/decoder, loader/writer, or cryptographic/hash-like code.
+- Use `@test.assert_eq` for stable values. Use `try?` only when an expected failure is the assertion; otherwise let checked errors propagate from tests and helpers.
+- Assert byte/text behavior with non-ASCII, NUL, form-feed, high-bit bytes, overflow, empty input, and boundary offsets when the OCaml source depended on those cases.
+- Preserve golden fixtures where possible. If output spelling changes intentionally, document the compatibility decision.
 
-- Once behavior is covered, make APIs idiomatic:
-  - remove compatibility wrappers that no caller needs,
-  - shrink public helper APIs,
-  - move helpers to lower-level or internal packages,
-  - replace temporary package re-exports with explicit call sites,
-  - simplify redundant enum annotations and imports using compiler warnings.
-- Treat warnings as migration work items. Useful buckets include:
-  - `0025`: blackbox tests should qualify package APIs,
-  - `0032`: optional defaults are unused and can become required labels,
-  - `0065`: read-only arrays can be marked as such,
-  - `0072`: local `using` imports should become explicit qualification,
-  - `0073`: redundant enum/type annotations can be removed,
-  - `0074`: public APIs need docs.
+## Update Discipline
 
-## Review Checklist
+When a migration teaches a reusable rule, update `references/OCaml2MoonBit.md` with:
 
-- The MoonBit API expresses the migrated behavior, not just the OCaml module layout.
-- Package dependencies are acyclic and type ownership matches method placement.
-- Public helpers are documented or made private.
-- Tests cover the OCaml reference behavior and important corner cases.
-- `moon info`, `moon fmt`, `moon check`, and `moon test` pass.
-- Native-specific behavior is checked with `--target native` when relevant.
+- the OCaml behavior being replaced
+- the MoonBit API or idiom chosen
+- the verification command and observed output
+- any known incompatibility, target limitation, or deferred behavior
