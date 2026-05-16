@@ -665,6 +665,7 @@ Each must be imported separately in `moon.pkg`.
    ```
 3. Define `async fn main` (not `fn main`). Spawn concurrent tasks via `with_task_group` for structured concurrency:
    ```mbt nocheck
+   ///|
    async fn main {
      @async.with_task_group(group => {
        group.spawn_bg(() => {
