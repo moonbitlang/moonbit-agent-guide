@@ -341,7 +341,14 @@ moon run -c 'fn main { let xs = [(2, "b"), (1, "a")]; xs.sort_by(fn(a, b) { a.0.
 
 `Array::sort_by` sorts in place with an `Int`-returning comparator. `Array::rev()` returns a reversed **copy** and leaves the original unchanged — useful when porting OCaml list-building code that conses in reverse and conditionally applies `List.rev`.
 
-Use ordered arrays of pairs when insertion order or stable rendering matters; use `@hashmap.HashMap[K, V]` (from `moonbitlang/core/hashmap`) for unordered lookup once the import is in `moon.pkg`.
+```sh
+moon run -c $'fn main { let m : Map[Int, String] = Map([]); m[3] = "three"; m[1] = "one"; m[2] = "two"; for k, v in m { println("\\{k}=\\{v}") } }'
+# 3=three
+# 1=one
+# 2=two
+```
+
+For keyed lookup, prefer the built-in `Map[K, V]` — it is a **linked hashmap that preserves insertion order**, so iteration is deterministic and matches the order keys were written. Construct with `Map([])` (or `Map([], capacity=N)`); `Map::new()` is deprecated. Reach for `@hashmap.HashMap[K, V]` (from `moonbitlang/core/hashmap`) only when insertion order is irrelevant and you want a marginally cheaper structure. Use ordered arrays of pairs only when you need duplicate keys or sequence-style processing.
 
 ## Errors
 
