@@ -30,6 +30,9 @@ When in doubt, probe with `moon run -c '...'`. Probes in this guide were verifie
 | OCaml `array` with fixed length | `FixedArray[T]` |
 | mutable growable builder | `Array[T]` |
 | read-only sequence parameter | `ArrayView[T]` or `BytesView` |
+| compile-time lookup table (literal or comprehension) | `ReadOnlyArray[T]` |
+| keyed lookup with deterministic iteration | `Map[K, V]` |
+| OCaml `Buffer.t` byte builder | `@buffer.Buffer` |
 | OCaml `ref` | `Ref[T]` |
 | OCaml variant | `enum`, often `priv enum` for internal states |
 | OCaml record | `struct`, with `{ ..old, field: value }` for immutable update |
@@ -226,7 +229,7 @@ print_endline (string_of_float infinity);;
 EOF
 # 2.
 # inf
-moon run -c 'fn main raise{ println((2.0).to_string()); println((1.0 / 0.0).to_string()); let tiny : Double =  @string.from_str("1e-10"); println(tiny.to_string()) }'
+moon run -c 'fn main raise { println((2.0).to_string()); println((1.0 / 0.0).to_string()); let tiny : Double = @string.from_str("1e-10"); println(tiny.to_string()) }'
 # 2
 # Infinity
 # 1e-10
@@ -518,11 +521,11 @@ moon run -c $'fn parse(s : String) -> Int raise { @string.parse_int(s) }\nfn mai
 Comprehension bodies **cannot** call error-raising functions. Port OCaml `List.map`/`Array.map` with raising mappers as an explicit loop in a raising function: push each result into an output array and let the error propagate.
 
 ```sh
-moon run -c 'fn main { let map : @hashmap.HashMap[Int, Int] = @hashmap.HashMap([]); map[1] = 10; map[2] = 20; let mut total = 0; for key in map.keys() { total += key }; println(total) }'
+moon run -c 'fn main { let m : Map[Int, Int] = Map([]); m[1] = 10; m[2] = 20; let mut total = 0; for key in m.keys() { total += key }; println(total) }'
 # 3
 ```
 
-`for x in xs` iterates any iterable, not just arrays/views. Do not convert iterables to `Array` just to loop; reserve `.to_array()`/`.to_owned()` for cases that need an owned snapshot, sorting, indexing, or mutation.
+`for x in xs` iterates any iterable, not just arrays/views. `Map`, `@hashmap.HashMap`, ranges, and views all support it directly. Do not convert iterables to `Array` just to loop; reserve `.to_array()`/`.to_owned()` for cases that need an owned snapshot, sorting, indexing, or mutation.
 
 ```sh
 moon run -c 'fn first_positive(xs : Array[Int]) -> Int? { let mut i = 0; while i < xs.length() { if xs[i] > 0 { break Some(xs[i]) }; i += 1 } nobreak { None } }
