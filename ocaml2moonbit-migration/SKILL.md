@@ -34,7 +34,7 @@ When in doubt, probe with `moon run -c '...'`. Probes in this guide were verifie
 | OCaml variant | `enum`, often `priv enum` for internal states |
 | OCaml record | `struct`, with `{ ..old, field: value }` for immutable update |
 | OCaml exception flow | `suberror` plus checked `raise` |
-| lazy/deferred state | explicit `enum` state machine |
+| lazy/deferred state | `Lazy[T]` |
 | OCaml `int32` needing wrapping | `Int` |
 | OCaml `int32` needing wide arithmetic | `Int64` or `UInt64` |
 | OCaml `float` | `Double` |
@@ -89,31 +89,34 @@ moon run -c 'fn main { let empty = Bytes::new(0); let zeros = Bytes::new(2); pri
 `Bytes::copy` is deprecated because `Bytes` is immutable. When a port must materialize a fresh physical copy (e.g. to preserve an OCaml promise that no buffer is shared), use `Bytes::makei(len, i => src[i])`.
 
 ```sh
-moon run -c 'fn main { let b = @ascii.encode("PDF"); println(b.length()); println(b[0].to_int()) }'
+moon run -c $'let cached_filter = b"/Filter"\nfn main { let b = b"PDF"; println(b.length()); println(b[0].to_int()); println(cached_filter.length()); println(cached_filter[0].to_int()) }'
 # 3
 # 80
+# 7
+# 47
 ```
 
-Encode ASCII format syntax through `@ascii.encode(...)`. Do not build binary file formats by `String` concatenation. Cache frequently-reused ASCII grammar tokens as a private top-level `let cached_filter : Bytes = @ascii.encode("/Filter")` — top-level declarations need an explicit type annotation.
+`b"..."` is a compile-time byte-string literal of type `Bytes`. Use it for ASCII format syntax (`b"/Filter"`, `b"PDF"`, etc.) — no `@ascii` import, no runtime call, no type annotation needed at top level. Reserve `@ascii.encode(text)` for `String → Bytes` conversion when the source is a dynamic `String`. Do not build binary file formats by `String` concatenation.
 
 ```sh
-moon run -c $'fn push_ascii(output : Array[Byte], text : String) -> Unit { for byte in @ascii.encode(text)[:] { output.push(byte) } }\nfn main { let output : Array[Byte] = []; push_ascii(output, "PDF"); output.push(10); let bytes = Bytes::from_array(output); println(bytes.length()); println(bytes[0].to_int()); println(bytes[3].to_int()) }'
+moon run -c $'fn main { let buf = @buffer.new(); buf.write_bytes(b"PDF"); buf.write_byte(10); let bytes = buf.contents(); println(bytes.length()); println(bytes[0].to_int()); println(bytes[3].to_int()) }'
 # 4
 # 80
 # 10
 ```
 
-The canonical MoonBit byte-builder shape is: `Array[Byte]` as the mutable accumulator, append ASCII syntax through `@ascii.encode(text)[:]`, append binary payloads from `BytesView`, then call `Bytes::from_array` once at the ownership boundary.
+The canonical MoonBit byte-builder is `@buffer.Buffer` (from `moonbitlang/core/buffer`). Construct with `@buffer.new()` (optionally `size_hint=N`), append static ASCII via `buf.write_bytes(b"...")`, single bytes via `buf.write_byte(n)`, dynamic text via `buf.write_bytes(@ascii.encode(text))`, binary payloads via `buf.write_bytes(view)`, then freeze with `buf.contents()`. Reserve `Array[Byte]` plus `Bytes::from_array` for cases that need random-access mutation of in-flight bytes; `Buffer` is the OCaml `Buffer.t` analogue.
 
 ```sh
-moon run -c 'fn main { let s = "/UniJIS-UCS2-H"; println(s.has_prefix("/Uni")); println(s.contains("-UCS2-")); println(s.has_suffix("-H")); println(s.unsafe_substring(start=1, end=s.length())) }'
+moon run -c 'fn main { let s = "/UniJIS-UCS2-H"; println(s.has_prefix("/Uni")); println(s.contains("-UCS2-")); println(s.has_suffix("-H")); println(s[1:]); println(s.unsafe_substring(start=1, end=s.length())) }'
 # true
 # true
 # true
-UniJIS-UCS2-H
+# UniJIS-UCS2-H
+# UniJIS-UCS2-H
 ```
 
-`String::has_prefix`, `has_suffix`, `contains`, and `unsafe_substring(start=..., end=...)` cover text-level work. Offsets are UTF-16 code-unit offsets, not bytes; use these only for ASCII-validated tokens or genuinely textual parsing.
+`String::has_prefix`, `has_suffix`, and `contains` cover predicate work. Slice with `s[start:end]` — like `BytesView`, this returns a borrowed `StringView`, cheap and good for inspection/pattern matching. When the callee needs an owned `String` (e.g. for storage or a `String` parameter), use `s.unsafe_substring(start=..., end=...)` instead. Offsets are UTF-16 code-unit offsets, not bytes; use these only for ASCII-validated tokens or genuinely textual parsing.
 
 ## Bytes Views
 
@@ -223,7 +226,7 @@ print_endline (string_of_float infinity);;
 EOF
 # 2.
 # inf
-moon run -c 'fn main { println((2.0).to_string()); println((1.0 / 0.0).to_string()); let tiny : Double = try! @strconv.from_str("1e-10"); println(tiny.to_string()) }'
+moon run -c 'fn main raise{ println((2.0).to_string()); println((1.0 / 0.0).to_string()); let tiny : Double =  @string.from_str("1e-10"); println(tiny.to_string()) }'
 # 2
 # Infinity
 # 1e-10
