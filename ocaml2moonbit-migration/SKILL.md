@@ -16,7 +16,7 @@ When in doubt, probe with `moon run -c '...'`. Probes in this guide were verifie
 3. Choose MoonBit package boundaries and imports before coding. Add imports to `moon.pkg`; MoonBit source files do not use OCaml-style `open`.
 4. Port one behavioral slice at a time with tests. Prefer a thin public API skeleton, then fill parser/serializer/algorithm internals behind it.
 5. Probe uncertain language or library behavior with `moon run -c` and, when needed, a small OCaml toplevel probe. Keep probes minimal.
-6. Finish each slice with `moon check --warn-list +73`, `moon test`, `moon info`, and `moon fmt`.
+6. Finish each slice with `moon check`, `moon test`, `moon info`, and `moon fmt`. You can add more warnings `moon check --warn-list +...` to be more strict.
 
 ## Type-Mapping Cheatsheet
 
@@ -61,7 +61,7 @@ moon run -c 'fn main { let s = "𝄞"; println(s.length()); println(s.char_lengt
 # 1
 ```
 
-`String::length()` is UTF-16 code units, `String::char_length()` is Unicode scalars, and neither is bytes. For byte-oriented formats use `Bytes`/`BytesView`. Convert between `Bytes` and `String` only through a named encoding helper (`@ascii.encode`, UTF-8 decoder, etc.) that documents the encoding assumption.
+`String::length()` is UTF-16 code units, `String::char_length()` is Unicode scalars, and neither is bytes. For byte-oriented formats use `Bytes`/`BytesView`. Convert between `Bytes` and `String` only through a named encoding helper (`@ascii.encode`, `@utf8.encode`, etc.) that documents the encoding assumption.
 
 ```sh
 moon run -c 'fn main { let raw : Array[Byte] = [65, 0, 255]; let b = Bytes::from_array(raw); println(b.length()); println(b[2].to_int()) }'
@@ -108,7 +108,7 @@ moon run -c $'fn main { let buf = @buffer.new(); buf.write_bytes(b"PDF"); buf.wr
 The canonical MoonBit byte-builder is `@buffer.Buffer` (from `moonbitlang/core/buffer`). Construct with `@buffer.new()` (optionally `size_hint=N`), append static ASCII via `buf.write_bytes(b"...")`, single bytes via `buf.write_byte(n)`, dynamic text via `buf.write_bytes(@ascii.encode(text))`, binary payloads via `buf.write_bytes(view)`, then freeze with `buf.contents()`. Reserve `Array[Byte]` plus `Bytes::from_array` for cases that need random-access mutation of in-flight bytes; `Buffer` is the OCaml `Buffer.t` analogue.
 
 ```sh
-moon run -c 'fn main { let s = "/UniJIS-UCS2-H"; println(s.has_prefix("/Uni")); println(s.contains("-UCS2-")); println(s.has_suffix("-H")); println(s[1:]); println(s.unsafe_substring(start=1, end=s.length())) }'
+moon run -c 'fn main { let s = "/UniJIS-UCS2-H"; println(s.has_prefix("/Uni")); println(s.contains("-UCS2-")); println(s.has_suffix("-H")); println(s[1:]); println(s[1:].to_owned()) }'
 # true
 # true
 # true
@@ -116,7 +116,7 @@ moon run -c 'fn main { let s = "/UniJIS-UCS2-H"; println(s.has_prefix("/Uni")); 
 # UniJIS-UCS2-H
 ```
 
-`String::has_prefix`, `has_suffix`, and `contains` cover predicate work. Slice with `s[start:end]` — like `BytesView`, this returns a borrowed `StringView`, cheap and good for inspection/pattern matching. When the callee needs an owned `String` (e.g. for storage or a `String` parameter), use `s.unsafe_substring(start=..., end=...)` instead. Offsets are UTF-16 code-unit offsets, not bytes; use these only for ASCII-validated tokens or genuinely textual parsing.
+`String::has_prefix`, `has_suffix`, and `contains` cover predicate work. Slice with `s[start:end]` — like `BytesView`, this returns a borrowed `StringView`, cheap and good for inspection/pattern matching. When the callee needs an owned `String` (e.g. for storage or a `String` parameter), use `s[start:end].to_owned()`. Offsets are UTF-16 code-unit offsets, not bytes; use these only for ASCII-validated tokens or genuinely textual parsing.
 
 ## Bytes Views
 
@@ -310,13 +310,14 @@ fn main { let ranges = [(0x21, 0x23, 100), (0x30, 0x30, 200)]; println(range_loo
 For large OCaml mapping tables, prefer compact `ArrayView`-accepted range tables (`(first, last, base)` plus small exception/sequence tables) over mechanically expanding every entry. Generated MoonBit sources stay smaller and native-target validation runs faster, with the same deterministic lookup behavior.
 
 ```sh
-moon run -c $'let table : ReadOnlyArray[Int?] = [None, Some(10), Some(20)]\nfn lookup(i : Int) -> Int? { if i >= 0 && i < table.length() { table[i] } else { None } }\nfn main { println(lookup(1).unwrap()); println(lookup(0) == None); println(lookup(5) == None) }'
+moon run -c $'let table : ReadOnlyArray[Int?] = [for i in 0..<8 => if i == 5 { Some(10) } else { None }]\nfn lookup(i : Int) -> Int? { if i >= 0 && i < table.length() { table[i] } else { None } }\nfn main { println(lookup(5).unwrap()); println(lookup(0) == None); println(lookup(99) == None); println(table.length()) }'
 # 10
 # true
 # true
+# 8
 ```
 
-For dense lookup domains, define a private top-level `let table : ReadOnlyArray[T?] = [...]` with an array literal. `ReadOnlyArray[T]` is the read-only counterpart of `Array[T]` — perfect for compile-time tables since the literal coerces directly with no `makei` ceremony. Keep the bounds check at the lookup boundary. Use `FixedArray::makei(n, i => ...)` when the table contents must be computed at startup rather than written as a literal.
+For dense lookup domains, define a private top-level `let table : ReadOnlyArray[T?] = [...]`. `ReadOnlyArray[T]` is the read-only counterpart of `Array[T]`; an array literal coerces directly, and **list comprehensions also produce `ReadOnlyArray[T]`** — so `[for i in 0..<N => entry(i)]` is the idiomatic way to populate a compile-time table without `makei` ceremony. Keep the bounds check at the lookup boundary.
 
 ## Mutation, Refs, Arrays
 
