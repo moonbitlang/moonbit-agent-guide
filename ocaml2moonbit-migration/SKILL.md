@@ -466,15 +466,9 @@ fn main { println(f(3, xs=[1, 2], flag=false)); println(f(3, flag=true)); printl
 
 After required positional arguments, multiple optionals can be supplied by label in any order.
 
-```sh
-moon run -c 'fn f(x? : Int? = None) -> Int { match x { Some(v) => v; None => -1 } }
-fn g(x? : Int? = None) -> Int { f(x~) }
-fn main { println(g()); println(g(x=Some(7))) }'
-# -1
-# 7
-```
+Default values can call local functions, useful for structured-record or array defaults.
 
-Optional labelled arguments can themselves be `Option`-typed — use this when porting OCaml `string option` where "absent" and "explicitly empty" must remain distinct. `label~` forwarding works through `Option` too. Default values can call local functions, useful for structured-record or array defaults.
+For an OCaml parameter that is genuinely "absent vs explicitly None vs explicitly Some(x)" — three distinct states — an `Option`-typed labelled argument (`x? : T? = None`) is acceptable, and `label~` forwarding still works through it. But this is rare. The common case is just `x? : T = default_value`; do not reach for `Option`-typed labels when a plain typed default would express the same thing.
 
 ## Pattern Matching
 
