@@ -180,13 +180,13 @@ moon run -c 'fn main { println((-8) >> 1); println(1 << 32); println(1 >> 32); l
 `Int` right shift is arithmetic, and shift counts are **masked to 5 bits**, so `1 << 32 == 1`. For OCaml `Int32.shift_right_logical`, reinterpret signed→unsigned, shift, reinterpret back. Numeric conversion (`.to_uint()`) is **not** the same as bit reinterpretation (`.reinterpret_as_uint()`).
 
 ```sh
-moon run -c $'fn main { let parsed : Result[Int, Error] = try? @strconv.from_str("2147483648"); println(parsed is Err(_)); let mut value = 0; for digit in [50,49,52,55,52,56,51,54,52,56] { value = value * 10 + digit - 48 }; println(value); let mut wide = 0L; for digit in [50,49,52,55,52,56,51,54,52,56] { wide = wide * 10L + (digit - 48).to_int64() }; println(wide.to_string()) }'
+moon run -c $'fn main { let parsed : Result[Int, Error] = try? @string.parse_int("2147483648"); println(parsed is Err(_)); let mut value = 0; for digit in [50,49,52,55,52,56,51,54,52,56] { value = value * 10 + digit - 48 }; println(value); let mut wide = 0L; for digit in [50,49,52,55,52,56,51,54,52,56] { wide = wide * 10L + (digit - 48).to_int64() }; println(wide.to_string()) }'
 # true
 # -2147483648
 # 2147483648
 ```
 
-`@strconv.from_str<Int>` rejects out-of-range decimals, but handwritten digit accumulation in `Int` silently wraps. Accumulate offsets, lengths, object numbers, or serialized counters in `Int64`/`UInt64`; bounds-check before narrowing to `Int`.
+`@string.parse_int` rejects out-of-range decimals, but handwritten digit accumulation in `Int` silently wraps. Accumulate offsets, lengths, object numbers, or serialized counters in `Int64`/`UInt64`; bounds-check before narrowing to `Int`. (`@string` is the modern parsing namespace; `@strconv` is deprecated.)
 
 ```sh
 moon run -c 'fn main { println(0x8EA2A1A1 < 0); println(0x8EA2A1A1); println(0x7FFFFFFF < 0x8EA2A1A1); println((-1) % 256) }'
@@ -246,7 +246,7 @@ There is no `**` operator — use `@math.pow(base, exponent)`. Common helpers ar
 
 ## Data Structures
 
-Map OCaml variants to MoonBit `enum`. Derive `Debug`, `Eq`, and `ToJson` for types that will be inspected in tests.
+Map OCaml variants to MoonBit `enum`. Derive `Debug`, `Eq` for types that will be inspected in tests.
 
 ```sh
 moon run -c 'enum E { A(Int) } derive(Debug)
@@ -310,12 +310,13 @@ fn main { let ranges = [(0x21, 0x23, 100), (0x30, 0x30, 200)]; println(range_loo
 For large OCaml mapping tables, prefer compact `ArrayView`-accepted range tables (`(first, last, base)` plus small exception/sequence tables) over mechanically expanding every entry. Generated MoonBit sources stay smaller and native-target validation runs faster, with the same deterministic lookup behavior.
 
 ```sh
-moon run -c $'fn table_entry(i : Int) -> Int? { match i { 65 => Some(1); _ => None } }\nlet table : FixedArray[Int?] = FixedArray::makei(128, i => table_entry(i))\nfn lookup(byte : Int) -> Int? { if byte >= 0 && byte < table.length() { table[byte] } else { None } }\nfn main { println(lookup(65).unwrap()); println(lookup(66) == None) }'
-# 1
+moon run -c $'let table : ReadOnlyArray[Int?] = [None, Some(10), Some(20)]\nfn lookup(i : Int) -> Int? { if i >= 0 && i < table.length() { table[i] } else { None } }\nfn main { println(lookup(1).unwrap()); println(lookup(0) == None); println(lookup(5) == None) }'
+# 10
+# true
 # true
 ```
 
-For small dense lookup domains hit repeatedly, build a private top-level `FixedArray[T?]` with `FixedArray::makei`. Keep the bounds check at the lookup boundary.
+For dense lookup domains, define a private top-level `let table : ReadOnlyArray[T?] = [...]` with an array literal. `ReadOnlyArray[T]` is the read-only counterpart of `Array[T]` — perfect for compile-time tables since the literal coerces directly with no `makei` ceremony. Keep the bounds check at the lookup boundary. Use `FixedArray::makei(n, i => ...)` when the table contents must be computed at startup rather than written as a literal.
 
 ## Mutation, Refs, Arrays
 
@@ -346,26 +347,16 @@ Use ordered arrays of pairs when insertion order or stable rendering matters; us
 OCaml exceptions (`Not_found`, `End_of_file`, `Invalid_argument`, domain errors) should not be copied as unchecked control flow.
 
 ```sh
-moon run -c 'suberror E
-fn make(flag : Bool) -> ((Int) -> Int?) raise E { if flag { raise E } else { fn(x) { Some(x) } } }
-fn main { println((try! make(false))(3).unwrap()) }'
+moon run -c $'suberror E\nfn make(flag : Bool) -> ((Int) -> Int?) raise E { if flag { raise E } else { fn(x) { Some(x) } } }\nfn main raise { println(make(false)(3).unwrap()) }'
 # 3
 ```
 
 ```sh
-moon run -c $'fn parse(s : String) -> Int raise { @strconv.from_str(s) }\nfn helper() -> Int raise { parse("7") }\ntest "raising test body can propagate" { let value = parse("7"); @test.assert_eq(value, 7) }\nfn main { println((try! helper()).to_string()) }'
+moon run -c $'fn parse(s : String) -> Int raise { @string.parse_int(s) }\nfn helper() -> Int raise { parse("7") }\ntest "raising test body can propagate" { let value = parse("7"); @test.assert_eq(value, 7) }\nfn main raise { println(helper().to_string()) }'
 # 7
 ```
 
-Define a project-level `suberror` once the first fallible functions are ported. Fallible functions declare `raise ProjectError` or plain `raise`. Do **not** add explicit `try!` around every fallible call inside a raising function, test helper, or `test` body — checked errors propagate from those contexts automatically.
-
-```sh
-moon run -c 'fn helper(flag : Bool) -> Unit raise { if flag { fail("x") } }
-fn main { try! helper(false); println("helper uses raise") }'
-# helper uses raise
-```
-
-Test helpers that can call `fail` must declare `raise`, even when only called from `test` blocks.
+Define a project-level `suberror` once the first fallible functions are ported. Fallible functions declare `raise ProjectError` or plain `raise`. **`main` itself can be declared `fn main raise { ... }`**, which is the cleanest way to write probes and small entry points that call fallible APIs — no `try!` boilerplate. Inside a raising function, raising test helper, or `test` body, do not add explicit `try!` around every fallible call; checked errors propagate from those contexts automatically. Test helpers that can call `fail` must declare `raise`, even when only called from `test` blocks.
 
 When a raising function returns another function, parenthesize the function type before `raise`: `-> ((A) -> B) raise E`, **not** `-> (A) -> B raise E` (the latter binds `raise` to the returned function type).
 
@@ -375,7 +366,7 @@ moon run -c $'fn may_fail(flag : Bool) -> Unit raise { if flag { fail("boom") } 
 ```
 
 ```sh
-moon run -c $'fn parse(s : String) -> Int raise { @strconv.from_str(s) }\nfn main {\n  try parse("7") catch {\n    _ => println(0)\n  } noraise {\n    value => println(value)\n  }\n}'
+moon run -c $'fn parse(s : String) -> Int raise { @string.parse_int(s) }\nfn main {\n  try parse("7") catch {\n    _ => println(0)\n  } noraise {\n    value => println(value)\n  }\n}'
 # 7
 ```
 
@@ -414,7 +405,7 @@ Callback parameters use function types like `(Int) -> Int`; callback literals ar
 
 ```sh
 moon run -c 'fn apply(f : (Int) -> Int raise, x : Int) -> Int raise { f(x) }
-fn main { println(try! apply(fn(x) raise { if x == 0 { fail("zero") }; x + 1 }, 1)) }'
+fn main raise { println(apply(fn(x) raise { if x == 0 { fail("zero") }; x + 1 }, 1)) }'
 # 2
 ```
 
@@ -518,14 +509,14 @@ moon run -c 'fn main { let pairs = [(1, 2), (3, 4)]; let firsts = [ for pair in 
 Comprehension syntax: `[ for x in xs => expr ]`. Use a simple identifier as the binder and destructure tuples or access fields inside the body.
 
 ```sh
-moon run -c $'fn parse(s : String) -> Int raise { @strconv.from_str(s) }\nfn main { let _ = [ for s in ["1"] => parse(s) ]; println("done") }'
+moon run -c $'fn parse(s : String) -> Int raise { @string.parse_int(s) }\nfn main { let _ = [ for s in ["1"] => parse(s) ]; println("done") }'
 # Error: calling function with error is not allowed inside list comprehension.
 ```
 
 Comprehension bodies **cannot** call error-raising functions. Port OCaml `List.map`/`Array.map` with raising mappers as an explicit loop in a raising function: push each result into an output array and let the error propagate.
 
 ```sh
-moon run -c 'fn main { let map : @hashmap.HashMap[Int, Int] = @hashmap.HashMap::new(); map[1] = 10; map[2] = 20; let mut total = 0; for key in map.keys() { total += key }; println(total) }'
+moon run -c 'fn main { let map : @hashmap.HashMap[Int, Int] = @hashmap.HashMap([]); map[1] = 10; map[2] = 20; let mut total = 0; for key in map.keys() { total += key }; println(total) }'
 # 3
 ```
 
@@ -602,19 +593,19 @@ Assertion style:
 - `@test.assert_eq` accepts a named `msg=` argument for shared assertion helpers.
 - Shared test helpers that call `@test.assert_eq`, `fail`, or fallible APIs should declare `-> Unit raise Error` unless they use a narrower project error type.
 - Pattern checks: `assert_true(value is Pattern(...))` or `guard ... else { fail(...) }`.
-- Snapshots: `inspect(value, content="...")` for small values; `json_inspect(value, content=...)` for complex values with `ToJson`. If the expected snapshot is unknown, write `inspect(value)`, run `moon test --update`, then review the diff.
+- Snapshots: `inspect(value, content="...")` for small values; `debug_inspect(value, content=...)` for complex values with `Debug`. If the expected snapshot is unknown, write `inspect(value)`, run `moon test --update`, then review the diff.
 - Success paths through raising functions: call the fallible API directly and let the test fail on any error. Expected failures: `let result : Result[T, Error] = try? f()` and assert or inspect the result.
 - Use `Err(_)` for "this should raise"; match a specific error variant only when that variant is itself part of the compatibility contract.
 
 ```sh
 moon run -c 'fn helper() -> Unit raise Error { @test.assert_eq(true, true); @test.assert_eq([1, 2], [1, 2]) }
-fn main { try! helper() }'
+fn main raise { helper() }'
 ```
 
 ```sh
 moon run -c 'import { "moonbitlang/core/test" }
 fn helper() -> Unit raise { @test.assert_eq(true, true, msg="named assertion") }
-fn main { try! helper(); println("ok") }'
+fn main raise { helper(); println("ok") }'
 # ok
 ```
 
