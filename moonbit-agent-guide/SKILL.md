@@ -185,7 +185,7 @@ my_module
 - `moon new my_project` - Create new project
 - `moon run cmd/main` - Run main package
 - `moon run - < hello.mbt` - Run code from stdin (useful for quick experiments)
-- `moon run -c "code snippet"` - Run code from command line argument (good for one-liners)
+- `moon run -e "code snippet"` - Run code from command line argument (good for one-liners)
   Example:
   ```bash
   cat hello.mbt | moon run -
@@ -200,7 +200,7 @@ my_module
   EOF
   ```
   ```
-  moon run -c 'fn main { println("Hello, MoonBit!") }'
+  moon run -e 'fn main { println("Hello, MoonBit!") }'
   ```
 - `moon build` - Build project
   (`moon run` and `moon build` both support `--target`)
@@ -216,11 +216,11 @@ my_module
       contains("unused"))'
   ```
   or, for richer post-processing, pipe into a small MoonBit program via
-  `moon run -c`. Use `--target native` (the default `wasm-gc` does not support
+  `moon run -e`. Use `--target native` (the default `wasm-gc` does not support
   `async fn main` or `@stdio.stdin`), a quoted heredoc (`<<'EOF'`) so the shell
   does not expand `$`/backticks in the source, and a de-indented closing `EOF`:
   ````
-moon check --output-json 2>&1 | moon run --target native -c "$(cat <<'EOF'
+moon check --output-json 2>&1 | moon run --target native -e "$(cat <<'EOF'
 import {
   "moonbitlang/async",
   "moonbitlang/async/stdio",
