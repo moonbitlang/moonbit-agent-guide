@@ -919,16 +919,10 @@ test "string interpolation basics" {
   let config = { "cache": 123 }
   let version = 1.0
   println("Hello \{name} v\{version}") // "Hello Moon v1"
-  // ❌ Wrong - quotes inside interpolation not allowed:
-  // println("  - Checking if 'cache' section exists: \{config["cache"]}")
-
-  // ✅ Correct - extract to variable first:
-  let has_key = config["cache"] // `"` not allowed in interpolation
-  println("  - Checking if 'cache' section exists: \{has_key}")
+  // ✅ Quoted map keys are allowed inside interpolation expressions.
+  println("  - Checking if 'cache' section exists: \{config["cache"]}")
   let sb = StringBuilder()
-  sb.write_char('[')
-  sb.write_view([ for x in [1, 2, 3] => "\{x}" ].join(","))
-  sb.write_char(']')
+  sb <+ "[\{[ for x in [1, 2, 3] => "\{x}" ].join(",")}]"
   inspect(sb, content="[1,2,3]")
   let x = 42
   let streamed = StringBuilder()
@@ -937,7 +931,8 @@ test "string interpolation basics" {
 }
 ```
 
-Expressions inside `\{}` can only be _basic expressions_ (no quotes, newlines, or nested interpolations). String literals are not allowed as they make lexing too difficult.
+Expressions inside `\{}` must still be simple single-line expressions (no newlines or nested interpolations).
+Standalone string literals are not allowed, but quoted map keys in indexing expressions (for example, `config["cache"]`) are supported.
 
 String interpolation can also be streamed directly into a `Logger`/`StringBuilder`-style writer with `<+`:
 
