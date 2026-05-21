@@ -931,8 +931,8 @@ test "string interpolation basics" {
 }
 ```
 
-Expressions inside `\{}` must still be simple single-line expressions (no newlines or nested interpolations).
-Standalone string literals are not allowed, but quoted map keys in indexing expressions (for example, `config["cache"]`) are supported.
+Expressions inside `\{}` must be single-line expressions.
+Nested interpolations and string literals are supported, but line breaks inside `\{}` are not.
 
 String interpolation can also be streamed directly into a `Logger`/`StringBuilder`-style writer with `<+`:
 
