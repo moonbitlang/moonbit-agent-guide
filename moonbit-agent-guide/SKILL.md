@@ -813,10 +813,10 @@ fn parse_int(s : String, position~ : Position) -> Int raise ParseError {
 }
 
 ///|
-/// Just declare `raise` to not track specific error types
-fn div(x : Int, y : Int) -> Int raise {
+/// Declare a specific error type when callers should handle it precisely
+fn div(x : Int, y : Int) -> Int raise ValueError {
   if y is 0 {
-    fail("Division by zero")
+    raise ValueError::ValueError("Division by zero")
   }
   x / y
 }
@@ -829,7 +829,7 @@ test "expected success calls directly" {
 ///|
 test "expected failure handles the raised error" {
   try div(1, 0) catch {
-    err => inspect(err)
+    ValueError::ValueError(message) => inspect(message, content="Division by zero")
   } noraise {
     _ => fail("expected to fail")
   }
