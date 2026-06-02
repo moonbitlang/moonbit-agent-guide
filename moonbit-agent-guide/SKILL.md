@@ -180,6 +180,9 @@ my_module
 - **Don't write an empty parameter list for `main`** - use `fn main { ... }` or `fn main raise { ... }`, not `fn main() { ... }` or `fn main() raise ... { ... }`
 - **Don't write record-style enum or error constructor fields** - labeled constructor fields use `label~ : Type`, e.g. `InvalidNumber(input~ : String)`, not `InvalidNumber(input: String)`
 - **Prefer range `for` loops over C-style** - `for i in 0..<(n-1) {...}` and `for j in 0..=6 {...}` are more idiomatic in MoonBit
+- **Don't use `for { ... }` for infinite loops** - write `for ;; { ... }` instead
+- **Don't `derive(Show)` for debugging** - derive `Debug` and use `debug_inspect()` for test/diagnostic output (`\{to_repr(value)}` for interpolation of composed values). Reserve a manual `impl Show` for specialized display formats (JSON, XML, domain text)
+- **Don't call `@json.inspect()`** - use the prelude `json_inspect(value, ...)` without a package prefix
 - **Async** - MoonBit has no `await` keyword; do not add it. Async functions default to raising, so do not add `raise`; add `noraise` only when the async body must not raise.
   Async functions and tests are characterized by those which call other async functions.
   To identify a function or test as async, simply add the `async` prefix (e.g. `[pub] async fn ...`, `async test ...`).
@@ -286,11 +289,11 @@ Note you can also use `moon -C dir check` to run commands in a specific director
 
 Use snapshot tests as it is easy to update when behavior changes.
 
-- **Snapshot Tests**: `inspect(value, content="...")`. If unknown, write `inspect(value)` and run `moon test --update` (or `moon test -u`).
-  - Use regular `inspect()` for simple values (uses `Show` trait)
-  - Use `@json.inspect()` for complex nested structures (uses `ToJson` trait, produces more readable output)
-  - It is encouraged to `inspect` or `@json.inspect` the whole return value of a function if
-    the whole return value is not huge, this makes the test simple. You need `impl (Show|ToJson) for YourType` or `derive (Show, ToJson)`.
+- **Snapshot Tests**: write `inspect(value)` / `debug_inspect(value)` / `json_inspect(value)`, then run `moon test --update` (or `moon test -u`) to fill in `content=`.
+  - Use `inspect()` for values that implement `Show` (primitives, or types with a manual `impl Show`).
+  - Use `debug_inspect()` for any type that derives `Debug` — the default for your own data types.
+  - Use `json_inspect()` for complex nested structures (uses the `ToJson` trait, produces more readable output).
+  - It is encouraged to inspect the whole return value of a function if it is not huge; this keeps the test simple. Derive `Debug` and/or `ToJson` (or `impl Show`) on `YourType` accordingly.
 - **Update workflow**: After changing code that affects output, run `moon test --update` to regenerate snapshots, then review the diffs in your test files (the `content=` parameter will be updated automatically).
 - **Validation order**: Follow the canonical sequence in `Agent Workflow` and `Fast Task Playbooks`.
 
