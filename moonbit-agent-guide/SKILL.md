@@ -1319,6 +1319,92 @@ test {
 }
 ```
 
-## More details
+# MoonBit Package Organization Guideline
 
-For deeper syntax, types, and examples, read `references/moonbit-language-fundamentals.mbt.md`.
+A package should own the public concrete types whose constructors, fields, pattern matching, and methods users are expected to
+use. The owner can be the facade package itself, or a non-internal public package that the facade intentionally re-exports.
+
+Public type ownership is more important than implementation locality. If users think of a type as `@foo.X`, then `X` should be
+defined in package `foo` or in a public package re-exported by `foo`, especially if users call `X::method`, construct records,
+match enum constructors, or rely on generated `.mbti` docs.
+
+MoonBit can implicitly load the owning package for method lookup when a type is re-exported from a non-internal public package.
+For example, if `@foo` re-exports `type X` from public package `@bar`, external users can write a value as `@foo.X` and still
+call methods owned by `@bar.X`.
+
+Use `internal/*` packages for implementation support:
+
+- scanners
+- parsers for sub-syntax
+- escaping/encoding helpers
+- validation helpers
+- low-level algorithms
+- private helper result types
+
+Do not put public concrete API types in `internal/*` and expect a facade to recover the full API with re-exporting. External
+users do not get the same implicit method-owner loading for internal packages, so `x.method()` can fail even when `x` is typed
+as the facade's re-exported type. It also makes constructors, generated interfaces, and privacy boundaries harder to reason
+about.
+
+## Using `using` Correctly
+
+Use `pub using` for facade ergonomics, not for type ownership.
+
+Good use:
+
+```mbt
+// root package
+pub using @parser { parse, parse_fragment }
+pub using @dom { type Node, type NodeKind, to_markdown }
+pub using @serializer { type HtmlContext }
+```
+
+This is good when `@parser`, `@dom`, and `@serializer` are public packages that already own those APIs.
+
+Good value re-export from an internal package:
+
+```mbt
+pub using @impl { decode_entities }
+```
+
+This is acceptable if the exported function signature does not expose internal types and you intentionally want that value as
+public API.
+
+Risky use:
+
+```mbt
+pub using @internal_impl { type X }
+```
+
+Avoid this for public concrete types. If `X` is public, define it in the facade package or a non-internal public package. If
+`X` is truly internal, do not expose it as a public concrete type.
+
+Use an explicit wrapper instead of `pub using` when you need to:
+
+- translate internal helper results into public types
+- enforce public defaults
+- hide internal helper types
+- keep public API ownership clear
+- make the `.mbti` easier to review
+
+## Practical Rule
+
+If a public function returns `X`, and users should inspect, construct, pattern match, or call methods on `X`, then `X` belongs in
+the facade package that users name or a non-internal public package that the facade re-exports.
+
+If a helper package only computes data for another package, it may live under `internal/*`, but its types should either stay
+internal or be simple helper result types not exposed through the public facade.
+
+A good package boundary looks like:
+
+```text
+foo/
+  types.mbt        // public Foo, FooMode, FooResult
+  api.mbt          // public functions and Foo::methods
+  private_impl.mbt // private implementation files in same package
+
+internal/foo/
+  scanner.mbt
+  escaping.mbt
+  validation.mbt
+```
