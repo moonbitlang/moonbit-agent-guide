@@ -212,9 +212,9 @@ my_module
   moon run -e 'fn main { println("Hello, MoonBit!") }'
   ```
 - `moon build` - Build project
-  (`moon run` and `moon build` both support `--target`)
+  (`moon run` and `moon build` both support `--target`; `moon build` also supports `--diagnostic-limit <N>`)
 - `moon check` - Type check without building, use it REGULARLY, it is fast
-  (`moon check` also supports `--target`)
+  (`moon check` also supports `--target` and `--diagnostic-limit <N>`)
 - `moon info` - Type check and generate `mbti` files.
   Run it to see if any public interfaces changed.
   (`moon info` also supports `--target`.)
