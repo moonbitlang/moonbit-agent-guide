@@ -255,10 +255,12 @@ EOF
 )"
   ````
   Get the diagnostics with "unused" in the message, which can be used to find unused code.
-- `moon explain` - Show built-in documentation for compiler diagnostics.
-  - `moon explain --diagnostics` lists warning mnemonics and IDs.
-  - `moon explain --diagnostics 31` explains warning 31 (`unused_optional_argument`).
-  - `moon explain --diagnostics unused_optional_argument` explains the same warning by mnemonic.
+- `moon explain` - Show built-in documentation for compiler diagnostics and language topics.
+  - `moon explain --diagnostic` lists warning mnemonics and IDs.
+  - `moon explain --diagnostic 31` explains warning 31 (`unused_optional_argument`).
+  - `moon explain --diagnostic unused_optional_argument` explains the same warning by mnemonic.
+  - `moon explain --attribute` lists supported attributes such as `#deprecated`, `#alias`, `#cfg`, `#coverage.skip`, and `#warnings`.
+  - `moon explain --attribute deprecated` explains the `#deprecated` attribute and its supported forms.
 - `moon add package` - Add dependency
 - `moon remove package` - Remove dependency
 - `moon fmt` - Format code - should be run periodically - note that the files may be rewritten
