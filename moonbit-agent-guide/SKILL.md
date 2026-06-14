@@ -162,6 +162,7 @@ my_module
    `pkg.generated.mbti` files are compiler-generated summaries of each package's public API surface.
    They provide a formal, concise overview of all exported types, functions, and traits without implementation details.
    They are generated using `moon info` and useful for code review. When you have a commit that does not change public APIs, `pkg.generated.mbti` files will remain unchanged, so it is recommended to put `pkg.generated.mbti` in version control when you are done.
+   Do not modify `pkg.generated.mbti` directly, including whitespace-only cleanup; regenerate it with `moon info` and review its diff as the public API signal.
 
    For IDE navigation and symbol lookup commands, see the dedicated `moon ide` section below.
 
