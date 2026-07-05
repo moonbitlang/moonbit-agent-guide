@@ -212,6 +212,21 @@ my_module
   ```
   moon run -e 'fn main { println("Hello, MoonBit!") }'
   ```
+  For multi-line `-e` snippets, especially snippets with `import { ... }`,
+  pass real newlines. Do not put literal `\n` escapes inside single quotes;
+  MoonBit will see backslash characters, not line breaks. Use command
+  substitution with a quoted heredoc:
+  ```bash
+  moon run --target native -e "$(cat <<'EOF'
+  import {
+    "moonbitlang/x/sys"
+  }
+  fn main {
+    println(@sys.get_cli_args().join("|"))
+  }
+  EOF
+  )"
+  ```
 - `moon build` - Build project
   (`moon run` and `moon build` both support `--target`; `moon build` also supports `--diagnostic-limit <N>`)
 - `moon check` - Type check without building, use it REGULARLY, it is fast
