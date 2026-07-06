@@ -187,6 +187,9 @@ Keep `.mbtp` focused on:
 
 Avoid filling `.mbtp` with runtime implementation details.
 
+Logic body limitation:
+- only `Bool`, `Byte`, `Int`, `UInt`, `Int64`, and `UInt64` constants are supported in logic body
+
 Two recurring helper patterns are especially useful:
 
 1. Extensional equality hypotheses for abstract structures.
