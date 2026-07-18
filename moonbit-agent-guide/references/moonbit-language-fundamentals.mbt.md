@@ -267,43 +267,6 @@ test "pattern match over Array, struct and StringView" {
 }
 ```
 
-## Functional `loop` control flow
-
-The `loop` construct is unique to MoonBit:
-
-```mbt check
-///|
-/// Functional loop with pattern matching on loop variables
-/// @list.List is from the standard library
-fn sum_list(list : @list.List[Int]) -> Int {
-  loop (list, 0) {
-    (Empty, acc) => acc // Base case returns accumulator
-    (More(x, tail=rest), acc) => continue (rest, x + acc) // Recurse with new values
-  }
-}
-
-///|
-///  Multiple loop variables with complex control flow
-fn find_pair(arr : Array[Int], target : Int) -> (Int, Int)? {
-  loop (0, arr.length() - 1) {
-    (i, j) if i >= j => None
-    (i, j) => {
-      let sum = arr[i] + arr[j]
-      if sum == target {
-        Some((i, j)) // Found pair
-      } else if sum < target {
-        continue (i + 1, j) // Move left pointer
-      } else {
-        continue (i, j - 1) // Move right pointer
-      }
-    }
-  }
-}
-```
-
-**Note**: You must provide a payload to `loop`. If you want an infinite loop, use `while true { ... }` instead. The syntax `loop { ... }` without arguments is invalid.
-
-
 ## Methods and Traits
 
 Methods use `Type::method_name` syntax, traits require explicit implementation:
