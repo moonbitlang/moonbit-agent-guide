@@ -17,18 +17,16 @@ For fast, reliable task execution, follow this order:
    - Prefer `moon ide doc` queries to discover existing functions/types/methods before adding new code.
    - Use `moon ide outline`, `moon ide peek-def`, and `moon ide find-references` for semantic navigation.
 
-4. **Reliable refactoring**
-   - Use `moon ide rename` for semantic refactoring. If multiple symbols share a name, add `--loc filename:line:col`.
-   - If you want maintain backwards compatibility, use `#alias(old_api, deprecated)`.
-   
-5. **Edit minimally and package-locally**
+4. **Edit minimally and package-locally**
    - Keep changes inside the correct package, use `///|` top-level delimiters, and split code into cohesive files.
+   - For refactors, use `moon ide rename`; add `--loc filename:line:col` when names are ambiguous.
+   - Preserve compatibility with `#alias(old_api, deprecated)` when required.
 
-6. **Validate in a tight loop**
+5. **Validate in a tight loop**
    - Run `moon check` after edits, adding `--warn-list +unnecessary_annotation` to enable warning 73 for redundant annotations and over-qualified constructors (`--warn-list +73` is equivalent).
    - Run targeted tests with `moon test [dirname|filename] --filter 'glob'` and use `moon test --update` for snapshot changes.
 
-7. **Finalize before handoff**
+6. **Finalize before handoff**
    - Run `moon fmt`.
    - Run `moon info` to verify whether public APIs changed (`pkg.generated.mbti` diff).
    - Report changed files, validation commands, and any remaining risks.
