@@ -962,7 +962,9 @@ test "string indexing and utf8 encode/decode" {
   guard b0 is ('\n' | 'h' | 'b' | 'a'..='z') && s is [.. "hello", .. rest] else {
     fail("unexpected string content")
   }
-  guard rest is " world"  // otherwise will crash (guard without else)
+  guard rest is " world" else {
+    fail("unexpected string suffix")
+  }
 
   // In check mode (expression with explicit type), ('\n' : UInt16) is valid.
 
@@ -1066,7 +1068,7 @@ test "multi-line string literals" {
 test "map literals and common operations" {
   // Map literal syntax
   let map : Map[String, Int] = { "a": 1, "b": 2, "c": 3 }
-  let empty : Map[String, Int] = {} // Empty map, preferred
+  let empty : Map[String, Int] = Map([]) // Empty map
   let also_empty : Map[String, Int] = Map([])
   // From array of pairs
   let from_pairs : Map[String, Int] = Map::from_array([("x", 1), ("y", 2)])
@@ -1277,9 +1279,8 @@ fn g(
   let _ : Int = required
   let _ : Int? = optional
   let _ : Int = optional_with_default
-  // `to_repr` (from the prelude `Debug` trait) renders Option via the
-  // non-deprecated `Show for Repr`, avoiding the deprecated `Show for Option`.
-  "\{positional},\{required},\{to_repr(optional)},\{optional_with_default}"
+  // `Repr` renders Option without relying on its deprecated `Show` implementation.
+  "\{positional},\{required},\{Repr(optional)},\{optional_with_default}"
 }
 
 ///|
@@ -1296,7 +1297,7 @@ Callers still must pass it (as `None`/`Some(...)`).
 ```mbt check
 ///|
 fn with_config(a : Int?, b : Int?, c : Int) -> String {
-  "\{to_repr(a)},\{to_repr(b)},\{c}"
+  "\{Repr(a)},\{Repr(b)},\{c}"
 }
 
 ///|
