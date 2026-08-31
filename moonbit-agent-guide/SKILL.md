@@ -3,75 +3,14 @@ name: moonbit-agent-guide
 description: Guide for writing, refactoring, and testing MoonBit projects. Use when working in MoonBit modules or packages, organizing MoonBit files, using moon tooling (build/check/run/test/doc/ide etc.), or following MoonBit-specific layout, documentation, and testing conventions.
 ---
 
-# Agent Workflow
+# MoonBit Task Checklist
 
-For fast, reliable task execution, follow this order:
-
-1. **Clarify goal and constraints**
-   - Confirm expected behavior, non-goals, and compatibility constraints (target backend, public API stability, performance limits).
-
-2. **Locate module/package boundaries**
-   - Find `moon.mod` (module root) and relevant `moon.pkg` files (package boundaries and imports).
-
-3. **Discover APIs before coding**
-   - Prefer `moon ide doc` queries to discover existing functions/types/methods before adding new code.
-   - Use `moon ide outline`, `moon ide peek-def`, and `moon ide find-references` for semantic navigation.
-
-4. **Edit minimally and package-locally**
-   - Keep changes inside the correct package, use `///|` top-level delimiters, and split code into cohesive files.
-   - For refactors, use `moon ide rename`; add `--loc filename:line:col` when names are ambiguous.
-   - Preserve compatibility with `#alias(old_api, deprecated)` when required.
-
-5. **Validate in a tight loop**
-   - Run `moon check` after edits, adding `--warn-list +unnecessary_annotation` to enable warning 73 for redundant annotations and over-qualified constructors (`--warn-list +73` is equivalent).
-   - Run targeted tests with `moon test [dirname|filename] --filter 'glob'` and use `moon test --update` for snapshot changes.
-
-6. **Finalize before handoff**
-   - Run `moon fmt`.
-   - Run `moon info` to verify whether public APIs changed (`pkg.generated.mbti` diff).
-   - Report changed files, validation commands, and any remaining risks.
-
-
-## Fast Task Playbooks
-
-Use the smallest playbook that matches the request.
-
-### Bug Fix (No API Change Intended)
-
-1. Reproduce or identify the failing behavior.
-2. Locate symbols with `moon ide outline`, `moon ide peek-def`, `moon ide find-references`.
-3. Implement minimal fix in the current package.
-4. Validate with:
-   - `moon check`
-   - `moon test [dirname|filename] --filter 'glob'` (or closest targeted test scope)
-   - `moon fmt`
-   - `moon info` (confirm `pkg.generated.mbti` unchanged)
-
-### Refactor (Behavior Preserving)
-
-1. Confirm behavior/API invariants first.
-2. Prefer semantic rename/navigation tools:
-   - `moon ide rename`
-   - `moon ide find-references`
-   - `moon ide peek-def`
-   - If multiple symbols share a name, use `moon ide rename <symbol> <new_name> --loc filename:line:col`.
-3. Keep edits package-local and file-organization-focused.
-4. Validate with:
-   - `moon check`
-   - `moon test [dirname|filename]`
-   - `moon fmt`
-   - `moon info` (API should remain unchanged unless requested)
-
-### New Feature or Public API
-
-1. Discover existing idioms with `moon ide doc` before introducing new names.
-2. Add implementation in cohesive files with `///|` delimiters.
-3. Add/extend black-box tests and docstring examples for public APIs.
-4. Validate with:
-   - `moon check`
-   - `moon test [dirname|filename]` (use `--update` for snapshots when needed)
-   - `moon fmt`
-   - `moon info` (review and keep intended `pkg.generated.mbti` changes)
+- Locate the enclosing `moon.mod` and relevant `moon.pkg` files before editing.
+- Discover APIs with `moon ide doc`; use `outline`, `peek-def`, `find-references`, `hover`, and `rename` for semantic navigation and refactoring.
+- Keep changes within the correct package. Files do not define namespaces; separate top-level items with `///|`.
+- Add regression tests for bug fixes. Add black-box tests and docstring examples for new public APIs.
+- Validate with `moon check` and the narrowest relevant `moon test`; use `moon test --update` only for intended snapshot changes. Use `moon explain --diagnostic` to list warnings and `--warn-list` to enable selected warnings (for example, `+unnecessary_annotation`).
+- Run `moon fmt` and `moon info` before handoff. Review generated `.mbti` changes, especially when the public API should remain stable.
 
 
 # MoonBit Project Layouts
@@ -318,7 +257,7 @@ Use snapshot tests as it is easy to update when behavior changes.
   - Use `json_inspect()` for complex nested structures (uses the `ToJson` trait, produces more readable output).
   - It is encouraged to inspect the whole return value of a function if it is not huge; this keeps the test simple. Derive `Debug` and/or `ToJson` (or `impl Show`) on `YourType` accordingly.
 - **Update workflow**: After changing code that affects output, run `moon test --update` to regenerate snapshots, then review the diffs in your test files (the `content=` parameter will be updated automatically).
-- **Validation order**: Follow the canonical sequence in `Agent Workflow` and `Fast Task Playbooks`.
+- **Validation order**: Follow the `MoonBit Task Checklist`.
 
 - Black-box by default: Call only public APIs via `@package.fn`. Use white-box tests only when private members matter.
 - Grouping: Combine related checks in one `test "..." { ... }` block for speed and clarity.
@@ -445,7 +384,7 @@ pub fn String::rev_find(String, StringView) -> Int?
   Returns ... omitted ...
 ````
 
-**Best practice**: Treat this section as command reference; execution order is defined in `Agent Workflow`.
+**Best practice**: Treat this section as command reference; validation is defined in the `MoonBit Task Checklist`.
 
 ### `moon ide rename sym new_name [--loc filename:line:col]` example
 
