@@ -1,12 +1,13 @@
 ---
 name: moonbit-agent-guide
-description: Guide for writing, refactoring, and testing MoonBit projects. Use when working in MoonBit modules or packages, organizing MoonBit files, using moon tooling (build/check/run/test/doc/ide etc.), or following MoonBit-specific layout, documentation, and testing conventions.
+description: Guide for writing, refactoring, and testing MoonBit projects, including exclusive use of `.mbtx` for agent-authored automation. Use when working in MoonBit modules or packages, organizing MoonBit files, using moon tooling (build/check/run/test/doc/ide etc.), or following MoonBit-specific layout, scripting, documentation, and testing conventions.
 ---
 
 # MoonBit Task Checklist
 
 - Locate the enclosing `moon.mod` and relevant `moon.pkg` files before editing.
 - Discover APIs with `moon ide doc`; use `outline`, `peek-def`, `find-references`, `hover`, and `rename` for semantic navigation and refactoring.
+- Use `.mbtx` exclusively for agent-authored automation; keep automation logic out of shell scripts and other scripting languages.
 - Keep changes within the correct package. Files do not define namespaces; separate top-level items with `///|`.
 - Add regression tests for bug fixes. Add black-box tests and docstring examples for new public APIs.
 - Validate with `moon check` and the narrowest relevant `moon test`; use `moon test --update` only for intended snapshot changes. Use `moon explain --diagnostic` to list warnings and `--warn-list` to enable selected warnings (for example, `+unnecessary_annotation`).
@@ -127,42 +128,112 @@ my_module
 
 # `moon` Essentials
 
+## Script Mode (`.mbtx`)
+
+Use `.mbtx` exclusively for agent-authored automation. Keep loops,
+conditionals, parsing, transformation, and process orchestration in MoonBit
+instead of shell scripts or another scripting language. The outer shell should
+only launch the script or run a direct, single-purpose command.
+
+An `.mbtx` file is an optional `import { ... }` block followed by ordinary
+MoonBit code, including a `main` function. Run it directly with:
+
+```bash
+moon run path/to/script.mbtx [args...]
+```
+
+Choose `main` by the effects the script actually uses:
+
+- `fn main { ... }` is synchronous and does not propagate errors.
+- `fn main raise { ... }` is synchronous and may propagate checked errors.
+- `async fn main { ... }` is for scripts that call async APIs. Import
+  `"moonbitlang/async"`; do not add `raise` or `await`.
+
+All three work on the default Wasm target. Do not mark a purely synchronous
+script `async`; MoonBit reports `unused_async`.
+
+When automation runs commands, import `"moonbitlang/async/shell"` and use
+`@shell.Cmd` or `@shell.Pipeline`. They keep the executable and arguments
+separate and never invoke a shell, so characters such as `|`, `$()`, and `*`
+are passed literally. Use ordinary MoonBit control flow instead of `&&`, shell
+loops, or command substitution.
+
+Script mode defaults to Wasm. Supplying `--wasm-policy policy.json` enables
+deny-by-default control over MoonBit host APIs; grant only the required
+filesystem, environment, network, or process access. For process automation,
+prefer a narrow `process.allow` rule with an exact program and argument prefix
+over `process.spawn: true`. The policy authorizes a child process but does not
+sandbox the child itself, so the host must also confine child processes when
+they are not trusted.
+
+Minimal script (`hello.mbtx`):
+
+```mbtx
+fn main {
+  println("Hello from MoonBit script mode")
+}
+```
+
+Command-line automation (`sum_args.mbtx`):
+
+```mbtx
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+}
+
+fn main raise {
+  let args = @env.args()
+  for arg in args[1:]; total = 0 {
+    continue total + @string.parse_int(arg)
+  } nobreak {
+    println(total)
+  }
+}
+```
+
+Running `moon run sum_args.mbtx 10 20 12` prints `42`.
+
+Package imports work directly in the script header (`format_json.mbtx`):
+
+```mbtx
+import {
+  "moonbitlang/core/json",
+}
+
+fn main raise {
+  let source =
+    #|{
+    #|  "project": "moonbit",
+    #|  "enabled": true
+    #|}
+  let value = @json.parse(source)
+  println(value.stringify(indent=2))
+}
+```
+
+Async automation works on the default Wasm target. For example, run
+`moon run async_job.mbtx` for:
+
+```mbtx
+import {
+  "moonbitlang/async",
+}
+
+async fn main {
+  @async.sleep(10)
+  println("async automation complete")
+}
+```
+
 ## Essential Commands
 
 - `moon new my_project` - Create new project
 - `moon run cmd/main` - Run main package
-- `moon run - < hello.mbt` - Run code from stdin (useful for quick experiments)
+- `moon run - < hello.mbtx` - Run script code from stdin (useful for quick experiments)
 - `moon run -e "code snippet"` - Run code from command line argument (good for one-liners)
-  Example:
-  ```bash
-  cat hello.mbt | moon run -
-  ```
-  This allows you to quickly test small snippets of MoonBit code without creating a full project.
-  It can also be used with heredoc syntax for multi-line snippets:
-  ```bash
-  moon run - <<'EOF'
-  fn main {
-    println("Hello, MoonBit!")
-  }
-  EOF
-  ```
   ```
   moon run -e 'fn main { println("Hello, MoonBit!") }'
-  ```
-  For multi-line `-e` snippets, especially snippets with `import { ... }`,
-  pass real newlines. Do not put literal `\n` escapes inside single quotes;
-  MoonBit will see backslash characters, not line breaks. Use command
-  substitution with a quoted heredoc:
-  ```bash
-  moon run --target native -e "$(cat <<'EOF'
-  import {
-    "moonbitlang/x/sys"
-  }
-  fn main {
-    println(@sys.get_cli_args().join("|"))
-  }
-  EOF
-  )"
   ```
 - `moon build` - Build project
   (`moon run` and `moon build` both support `--target`; `moon build` also supports `--diagnostic-limit <N>`)
@@ -172,42 +243,55 @@ my_module
   Run it to see if any public interfaces changed.
   (`moon info` also supports `--target`.)
 - `moon check --target all` - Type check for all backends
-  moon check --output-json can be used with `jq` to filter the output, e.g,
-  ```
-  moon check --output-json 2>&1 | jq -R 'fromjson? | select(.message |
-      contains("unused"))'
-  ```
-  or, for richer post-processing, pipe into a small MoonBit program via
-  `moon run -e`. Use `--target native` (the default `wasm-gc` does not support
-  `async fn main` or `@stdio.stdin`), a quoted heredoc (`<<'EOF'`) so the shell
-  does not expand `$`/backticks in the source, and a de-indented closing `EOF`:
-  ````
-moon check --output-json 2>&1 | moon run --target native -e "$(cat <<'EOF'
+  Process structured diagnostics with a saved `.mbtx` script rather than a
+  shell pipeline or another scripting language. For example, save this as
+  `filter_diagnostics.mbtx`; `@shell.Cmd::each_line` runs `moon check` directly,
+  streams its JSON output, and returns its exit status:
+  ```mbtx
 import {
   "moonbitlang/async",
-  "moonbitlang/async/stdio",
+  "moonbitlang/async/shell",
   "moonbitlang/core/json",
 }
 
 async fn main {
-  let seen = {}
-  while @stdio.stdin.read_until("\n") is Some(line) {
-    try @json.parse(line.trim()) catch {
-      _ => ()
-    } noraise {
-      {"level": "warning", "path": String(p), ..} =>
-        if !seen.contains(p) {
-          seen[p] = ()
-          println(p)
-        }
-      _ => ()
-    }
+  let seen : Map[String, Unit] = Map([])
+  let exit_code = @shell.Cmd(
+    "moon",
+    ["check", "--target", "all", "--output-json"],
+  ).each_line(line => {
+      try @json.parse(line) catch {
+        _ => ()
+      } noraise {
+        { "level": "warning", "path": String(path), .. } =>
+          if !seen.contains(path) {
+            seen[path] = ()
+            println(path)
+          }
+        _ => ()
+      }
+    })
+  if exit_code != 0 {
+    fail("moon check exited with code \{exit_code}")
   }
 }
-EOF
-)"
-  ````
-  Get the diagnostics with "unused" in the message, which can be used to find unused code.
+  ```
+  Run it with a policy that allows that command prefix:
+  ```json
+  {
+    "process": {
+      "allow": [
+        {
+          "program": "moon",
+          "args_prefix": ["check", "--target", "all", "--output-json"]
+        }
+      ]
+    }
+  }
+  ```
+  ```bash
+  moon run --wasm-policy moon-check-policy.json filter_diagnostics.mbtx
+  ```
 - `moon explain` - Show built-in documentation for compiler diagnostics and language topics.
   - `moon explain --diagnostic` lists warning mnemonics and IDs.
   - `moon explain --diagnostic 31` explains warning 31 (`unused_optional_argument`).
@@ -630,28 +714,23 @@ For more advanced topics like `conditional compilation`, `link configuration`, `
 
 ## Async IO
 
-Asynchronous programming uses compiler support plus the `moonbitlang/async` runtime. The runtime supports the native backend best, has limited JavaScript support for IO-independent APIs, and does not support WebAssembly yet. For async IO examples, prefer native. Use `moon add moonbitlang/async@<version>` and `moon ide doc "@async"` to explore the API.
+Asynchronous programming uses compiler support plus the `moonbitlang/async`
+runtime. `async fn main` works on the default Wasm target as well as native when
+the runtime is imported. Individual host I/O APIs may still be target-specific;
+use `moon ide doc "@async"` and validate on the intended target.
 
-User-facing subpackages include `@async` (tasks, timers, cancellation), `@async/aqueue`, `@async/fs`, `@async/stdio`, and `@async/websocket`.
-Each must be imported separately in `moon.pkg`.
+User-facing subpackages include `@async` (tasks, timers, cancellation),
+`@async/aqueue`, `@async/fs`, `@async/shell` (shell-free process orchestration),
+`@async/stdio`, and `@async/websocket`.
+Each must be imported separately in `moon.pkg` or an `.mbtx` import block.
 
-1. Add the dependency and pin the native target in `moon.mod`:
-   ```
-   import {
-     "moonbitlang/async@0.18.1",
-   }
-
-   options(
-     "preferred-target": "native",
-   )
-   ```
-2. In the executable's `moon.pkg`, set `is-main`, restrict to native, and import what you need:
+1. Add the dependency with `moon add moonbitlang/async`.
+2. In the executable's `moon.pkg`, set `is-main` and import what you need:
    ```
    import {
      "moonbitlang/async",
      "moonbitlang/async/stdio",
    }
-   supported_targets = "native"
    options(
      "is-main": true,
    )
@@ -711,7 +790,9 @@ async test "sleep completes" {
 - There is no `await` keyword (similar to functions that raise errors). Inside an `async test`, call async functions normally.
 - `async test` also has the async raising effect by default; do not add `raise`.
 - Async tests run in parallel by default. Avoid shared ports, files, environment variables, and global mutable state unless each test isolates its resources.
-- Run with `moon test --target native` unless `moon.mod` sets `"preferred-target": "native"`. Use `moon test -v` when checking test names or async scheduling behavior.
+- Run `moon test` on the intended target; add `--target native` only when the
+  APIs under test require native execution. Use `moon test -v` when checking
+  test names or async scheduling behavior.
 - In `README.mbt.md` and docstrings, `mbt check` blocks may contain `async test` blocks; make sure the package imports `moonbitlang/async` for the relevant test mode.
 
 # MoonBit Language Tour
