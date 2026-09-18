@@ -375,7 +375,9 @@ The MoonBit code in a docstring will be type checked and tested automatically
 
 - The spec can be written in a readonly `spec.mbt` file (name is conventional, not mandatory) with stub code marked as declarations:
 
-```mbt check
+This intentionally incomplete contract is shown with `mbt nocheck`; it has no implementation to check or run as part of this guide. In a project, `moon check` reports unimplemented declarations until implementations are supplied.
+
+```mbt nocheck
 ///|
 declare pub type Yaml
 
@@ -852,7 +854,9 @@ fn parse_int(s : String, position~ : Position) -> Int raise ParseError {
   if s is "" {
     raise ParseError::InvalidEof(pos=position)
   }
-  ... // parsing logic
+  @string.parse_int(s) catch {
+    _ => raise ParseError::InvalidNumber(pos=position, s)
+  }
 }
 
 ///|
@@ -872,7 +876,8 @@ test "expected success calls directly" {
 ///|
 test "expected failure handles the raised error" {
   try div(1, 0) catch {
-    ValueError::ValueError(message) => inspect(message, content="Division by zero")
+    ValueError::ValueError(message) =>
+      inspect(message, content="Division by zero")
   } noraise {
     _ => fail("expected to fail")
   }
@@ -911,6 +916,15 @@ fn handle_parse(s : String, position~ : Position) -> Int {
     _ => 2
   }
 }
+
+///|
+test "error propagation and handling" {
+  let position = Position(0, 0)
+  inspect(use_parse("21", position~), content="42")
+  inspect(use_parse2(position~), content="246")
+  inspect(handle_parse("", position~), content="-1")
+  inspect(handle_parse("invalid", position~), content="2")
+}
 ```
 
 Important: When calling a function that can raise errors, if you only want to
@@ -932,11 +946,18 @@ test "integer and char literal overloading disambiguation via type in the curren
   // compile time error if the literal cannot be represented in the target type, 
   // e.g. let a7 : Byte = 256 // ❌ won't compile, 256 exceeds Byte max value 255
   assert_eq(int, uint16.to_int())
+  assert_eq(uint, 1U)
+  assert_eq(int64, 1L)
+  assert_eq(byte, b'\x01')
   let (a1, a2, a3) : (Int, Char, UInt16) = ('b', 'b', 'b')
   // char literal overloading, `a1` will be the unicode value of 'b', 
   // compile time error when the literal cannot be represented in the target type 
   // e.g, let a6 : UInt16 = '𐍈' // ❌ won't compile, '𐍈' is U+10348, which exceeds UInt16 max value 0xffff  
   let a4 : Byte = b'b' // Byte literal
+  assert_eq(a1, 98)
+  assert_eq(a2, 'b')
+  assert_eq(a3.to_int(), a1)
+  assert_eq(a4, b'b')
 }
 ```
 ## Bytes (Immutable)
@@ -946,6 +967,7 @@ test "integer and char literal overloading disambiguation via type in the curren
 test "bytes literals" {
   let b0 : Bytes = b"abcd"
   let b1 : Bytes = [0xff, 0x00, 0x01] // Array literal overloading
+  assert_eq(b1.length(), 3)
   guard b0 is [b'a', ..] && b0[1] is b'b' else {
     // Bytes can be pattern matched as BytesView and indexed
     fail("unexpected bytes content")
@@ -965,6 +987,10 @@ test "array literals overloading: disambiguation via type in the current context
   ) = ([1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3])
   // The literal `[1, 2, 3]` is overloaded based on the expected type in the current context.
   // Defaults to Array[_]
+  assert_eq(a0.length(), 3)
+  assert_eq(a1.length(), 3)
+  assert_eq(a2.length(), 3)
+  assert_eq(a3.length(), 3)
 }
 ```
 ## String (Immutable UTF-16)
@@ -979,9 +1005,7 @@ test "string indexing and utf8 encode/decode" {
   guard b0 is ('\n' | 'h' | 'b' | 'a'..='z') && s is [.. "hello", .. rest] else {
     fail("unexpected string content")
   }
-  guard rest is " world" else {
-    fail("unexpected string suffix")
-  }
+  guard rest is " world" else { fail("unexpected string suffix") }
 
   // In check mode (expression with explicit type), ('\n' : UInt16) is valid.
 
@@ -991,6 +1015,7 @@ test "string indexing and utf8 encode/decode" {
 
   // ⚠️ Important: Variables won't work with direct indexing
   let eq_char : Char = '='
+  assert_false(s.get_char(0) == Some(eq_char))
   // s[0] == eq_char // ❌ Won't compile - eq_char is not a literal, lhs is UInt while rhs is Char
   // Use: s[0] == '=' or s.get_char(0) == Some(eq_char)
   // Requires `"moonbitlang/core/encoding/utf8"` in `moon.pkg`.
@@ -1088,6 +1113,8 @@ test "map literals and common operations" {
   let empty : Map[String, Int] = Map([]) // Empty map
   // From array of pairs
   let from_pairs : Map[String, Int] = Map::from_array([("x", 1), ("y", 2)])
+  assert_true(empty.is_empty())
+  inspect(from_pairs["x"], content="1")
 
   // Set/update value
   map["new-key"] = 3
@@ -1100,6 +1127,7 @@ test "map literals and common operations" {
 
   // Direct access (panics if key missing)
   let value : Int = map["a"] // value = 10
+  inspect(value, content="10")
 
   // Iteration preserves insertion order
   for k, v in map {
@@ -1117,17 +1145,31 @@ test "map literals and common operations" {
 
 ## View Types
 
-**Key Concept**: View types (`StringView`, `BytesView`, `ArrayView[T]`) are zero-copy, non-owning read-only slices created with the `[:]` syntax. They don't allocate memory and are ideal for passing sub-sequences without copying data, for functions which take `String`, `Bytes`, `Array`, they also take `*View` (implicit conversion).
+**Key Concept**: View types (`StringView`, `BytesView`, `ArrayView[T]`) provide read-only access to a range without copying the underlying data. Parameters expecting a view can also accept the corresponding `String`, `Bytes`, or array via implicit conversion. The reverse conversion requires explicitly materializing the view.
 
 - `String` → `StringView` via `s[:]` or `s[start:end]` or `s[start:]` or `s[:end]`
 - `Bytes` → `BytesView` via `b[:]` or `b[start:end]`, etc.
-- `Array[T]`, `FixedArray[T]`, `ReadOnlyArray[T] → `ArrayView[T]` via `a[:]` or `a[start:end]`, etc.
+- `Array[T]`, `FixedArray[T]`, `ReadOnlyArray[T]` → `ArrayView[T]` via `a[:]` or `a[start:end]`, etc.
 
-**Important**: StringView slice is slightly different due to unicode safety:
-`s[a:b]` may raise an error at surrogate boundaries (UTF-16 encoding edge case). You have two options:
+**String boundaries**: Offsets count UTF-16 code units. Choose the operation by how invalid boundaries should be handled:
 
-- Use `try! s[a:b]` if you're certain the boundaries are valid (crashes on invalid boundaries)
-- Let the error propagate to the caller for proper handling
+- `s[a:b]` (`clamped_view`) clamps out-of-range offsets and snaps boundaries inward to avoid splitting surrogate pairs. It does not raise or panic; an inverted range yields an empty view.
+- `s.exact_view(start=a, end=b)` requires exact, valid boundaries and panics otherwise.
+- `s.get_view(start=a, end=b)` returns `None` for invalid boundaries.
+
+```mbt check
+///|
+test "string view boundaries and ownership" {
+  let s = "ab😀cd"
+  inspect(s[0:3], content="ab")
+  inspect(s[3:6], content="cd")
+  inspect(s[0:100], content="ab😀cd")
+  inspect(s[4:2], content="")
+  assert_true(s.get_view(end=3) is None)
+  let owned : String = s.exact_view(start=2, end=4).to_owned()
+  inspect(owned, content="😀")
+}
+```
 
 **When to use views**:
 
@@ -1135,7 +1177,7 @@ test "map literals and common operations" {
 - Passing slices to functions without allocation overhead
 - Avoiding unnecessary copies of large sequences
 
-Convert back with `.to_string()`, `.to_bytes()`, or `.to_array()` when you need ownership. (`moon ide doc StringView`)
+Use `.to_owned()` to materialize a `StringView`, `BytesView`, or `ArrayView[T]` as `String`, `Bytes`, or `Array[T]`. The old view conversion methods `.to_string()`, `.to_bytes()`, and `.to_array()` are deprecated. (`moon ide doc StringView`)
 
 ## User defined types(`enum`, `struct`)
 
@@ -1163,11 +1205,13 @@ struct Point {
 
 ///|
 pub fn Point::Point(x~ : Int, y~ : Int) -> Point {
-  { x, y }
+  { x, y, }
 }
 
 ///|
 test "user defined types: enum and struct" {
+  let tree = Node(left=Leaf(1), 2, right=Leaf(3))
+  inspect(tree.sum(), content="6")
   json_inspect(Point(x=10, y=20), content={ "x": 10, "y": 20 })
   debug_inspect(
     Point(x=10, y=20),
@@ -1311,15 +1355,15 @@ struct APIOptions {
 }
 
 ///|
-fn not_idiomatic(opts : APIOptions, arg : Int) -> Unit {
-
+fn not_idiomatic(opts : APIOptions, arg : Int) -> Int {
+  opts.width.unwrap_or(arg) * opts.height.unwrap_or(arg)
 }
 
 ///|
 test {
   // Hard to use in call site
-  not_idiomatic({ width: Some(5), height: None }, 10)
-  not_idiomatic({ width: None, height: None }, 10)
+  inspect(not_idiomatic({ width: Some(5), height: None, }, 10), content="50")
+  inspect(not_idiomatic({ width: None, height: None, }, 10), content="100")
 }
 ```
 
@@ -1356,19 +1400,26 @@ Use `pub using` for facade ergonomics, not for type ownership.
 
 Good use:
 
-```mbt
+```mbt nocheck
 // root package
-pub using @parser { parse, parse_fragment }
-pub using @dom { type Node, type NodeKind, to_markdown }
-pub using @serializer { type HtmlContext }
+
+///|
+pub using @parser {parse, parse_fragment}
+
+///|
+pub using @dom {type Node, type NodeKind, to_markdown}
+
+///|
+pub using @serializer {type HtmlContext}
 ```
 
 This is good when `@parser`, `@dom`, and `@serializer` are public packages that already own those APIs.
 
 Good value re-export from an internal package:
 
-```mbt
-pub using @impl { decode_entities }
+```mbt nocheck
+///|
+pub using @impl {decode_entities}
 ```
 
 This is acceptable if the exported function signature does not expose internal types and you intentionally want that value as
@@ -1376,8 +1427,9 @@ public API.
 
 Risky use:
 
-```mbt
-pub using @internal_impl { type X }
+```mbt nocheck
+///|
+pub using @internal_impl {type X}
 ```
 
 Avoid this for public concrete types. If `X` is public, define it in the facade package or a non-internal public package. If

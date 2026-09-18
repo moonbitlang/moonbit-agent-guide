@@ -1,10 +1,12 @@
 ## Conditional Compilation
 
-Target specific backends/modes in `moon.pkg.json`:
+Target specific backends/modes in `moon.pkg`. Legacy `moon.pkg.json` files remain supported; use the current format for new examples.
 
-```json
-{
-  "targets": {
+The configuration examples below are independent. When combining them in one package, merge their fields into a single `options(...)` block.
+
+```moonbit
+options(
+  targets: {
     "wasm_only.mbt": ["wasm"],
     "js_only.mbt": ["js"],
     "debug_only.mbt": ["debug"],
@@ -12,7 +14,7 @@ Target specific backends/modes in `moon.pkg.json`:
     "not_js.mbt": ["not", "js"], // for nonjs backend
     "complex.mbt": ["or", ["and", "wasm", "release"], ["and", "js", "debug"]] // more complex conditions
   }
-}
+)
 ```
 
 **Available conditions:**
@@ -25,11 +27,11 @@ Target specific backends/modes in `moon.pkg.json`:
 
 ### Basic Linking
 
-```json
-{
-  "link": true, // Enable linking for this package
-  // OR for advanced cases:
-  "link": {
+Enable linking with `options(link: true)`, or configure individual backends:
+
+```moonbit
+options(
+  link: {
     "wasm": {
       "exports": ["hello", "foo:bar"], // Export functions
       "heap-start-address": 1024, // Memory layout
@@ -55,45 +57,39 @@ Target specific backends/modes in `moon.pkg.json`:
       "cc-link-flags": "-s" // Link flags
     }
   }
-}
+)
 ```
 
 ## Warning Control
 
-Disable specific warnings in `moon.mod.json` or `moon.pkg.json`:
+Disable specific warnings in `moon.pkg`:
 
-```json
-{
-  "warn-list": "-2-29" // Disable unused variable (2) & unused package (29)
-}
+```moonbit
+warnings = "-unused_value-unused_package"
 ```
 
-**Common warning numbers:**
+**Common warning names:**
 
-- `1` - Unused function
-- `2` - Unused variable
-- `11` - Partial pattern matching
-- `12` - Unreachable code
-- `29` - Unused package
+- `unused_value` - Unused function or variable
+- `partial_match` - Partial pattern matching
+- `unreachable_code` - Unreachable code
+- `unused_package` - Unused package
 
-Use `moonc build-package -warn-help` to see all available warnings.
+Use `moon explain --diagnostic` to list warnings and `moon explain --diagnostic <name>` for details. Use `--deny-warn` on validation commands to make enabled warnings fail the build. Legacy JSON configurations use `"warn-list"` instead of `warnings`.
 
 ## Pre-build Commands
 
-Embed external files as MoonBit code:
+Declare a reusable rule and apply it with `dev_build` in `moon.pkg` to embed external files as MoonBit code:
 
-```json
-{
-  "pre-build": [
-    {
-      "input": "data.txt",
-      "output": "embedded.mbt",
-      "command": ":embed -i $input -o $output --name data --text"
-    },
-    ... // more embed commands
-  ]
-}
+```moonbit
+rule(
+  name: "embed-text",
+  command: ":embed -i $input -o $output --name data --text",
+)
+dev_build(rule: "embed-text", input: "data.txt", output: "embedded.mbt")
 ```
+
+Paths are relative to the module root. These commands run during package development, not when downstream users build the package as a dependency. Commit generated outputs for downstream builds. The old JSON `"pre-build"` configuration is deprecated.
 
 Generated code example:
 
