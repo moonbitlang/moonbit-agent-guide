@@ -28,4 +28,6 @@ jobs:
         run: moon test moonbit-agent-guide/SKILL.mbt.md --warn-list -1-2-3-6-7-27-28-68 --deny-warn --no-render
 
       - name: Test language fundamentals
-        run: moon test moonbit-agent-guide/references/moonbit-language-fundamentals.mbt.md --warn-list -1-2-3-6-7-9-27-28-68 --deny-warn --no-render
+        run: |
+          moon check moonbit-agent-guide/references/moonbit-language-fundamentals.mbt.md --deny-warn --no-render
+          moon test moonbit-agent-guide/references/moonbit-language-fundamentals.mbt.md --deny-warn --no-render

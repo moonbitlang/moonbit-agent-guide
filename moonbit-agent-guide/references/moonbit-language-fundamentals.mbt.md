@@ -52,6 +52,10 @@ test "everything is expression in MoonBit" {
     MySome(value) => "Success: \{value}"
     MyNone => "No value"
   }
+  inspect(msg, content="pos")
+  inspect(res, content="1")
+  inspect(description, content="Success: 10")
+  assert_true(MyNone is MyNone)
   let array = [1, 2, 3, 4, 5]
   let mut i = 0 // mutable bindings (local only, globals are immutable)
   let target = 3
@@ -119,6 +123,10 @@ pub(open) trait Comparable {
 
 ///|
 test "inspect test" {
+  let rect : Rect = { width: 3, height: 4 }
+  inspect(rect.area(), content="12")
+  debug_inspect(Loading, content="Loading")
+  debug_inspect(Ready(1), content="Ready(1)")
   let result = sum(1, 2)
   inspect(result, content="3")
   // The `content` can be auto-corrected by running `moon test --update`
@@ -163,6 +171,16 @@ let config : Addr = Addr::{
   port: 8080,
 }
 
+///|
+test "newtypes and records" {
+  inspect(raw, content="100")
+  inspect(config.host, content="localhost")
+  let received : Ref[String] = Ref::{ val: "" }
+  let handler = Handler(message => received.val = message)
+  (handler.0)("hello")
+  inspect(received.val, content="hello")
+}
+
 
 ```
 
@@ -189,6 +207,13 @@ enum Status {
   Active
   Inactive
 } derive(Debug, Eq, Compare)
+
+///|
+test "derived traits" {
+  let point : Coordinate = { x: 1, y: 2 }
+  json_inspect(point, content={ "x": 1, "y": 2 })
+  assert_true(Active < Inactive)
+}
 ```
 
 **Best practice**: Derive `Debug` and `Eq` for data types (use `debug_inspect()` in tests; `\{Repr(value)}` for interpolation). Add `ToJson` if you plan to test them with `json_inspect()`. Implement `Show` by hand only for specialized display formats (JSON, XML, user-facing text).
@@ -218,6 +243,9 @@ fn modify_array(arr : Array[Int]) -> Unit {
 
 ///|
 test "reference semantics" {
+  let c : Counter = { value: 0 }
+  increment(c)
+  inspect(c.value, content="1")
   let counter : Ref[Int] = Ref::{ val: 0 }
   counter.val += 1
   assert_true(counter.val is 1)
@@ -234,74 +262,86 @@ test "reference semantics" {
 
 ```mbt check
 ///|
-#warnings("-unused_value")
 test "pattern match over Array, struct and StringView" {
   let arr : Array[Int] = [10, 20, 25, 30]
   match arr {
-    [] => ... // empty array
-    [single] => ... // single element
+    [] => fail("expected a nonempty array")
+    [single] => inspect(single, content="10")
     [first, .. middle, rest] => {
       let _ : ArrayView[Int] = middle // middle is ArrayView[Int]  
       assert_true(first is 10 && middle is [20, 25] && rest is 30)
     }
   }
-  fn process_point(point : Point) -> Unit {
+  fn process_point(point : Point) -> String {
     match point {
-      { x: 0, y: 0 } => ...
-      { x, y } if x == y => ...
-      { x, .. } if x < 0 => ...
-      ...
+      { x: 0, y: 0 } => "origin"
+      { x, y } if x == y => "diagonal"
+      { x, .. } if x < 0 => "negative x"
+      _ => "other"
     }
   }
   /// StringView pattern matching for parsing
   fn is_palindrome(s : StringView) -> Bool {
-    loop s {
-      [] | [_] => true
-      [a, .. rest, b] if a == b => continue rest
-      // a is of type Char, rest is of type StringView
-      _ => false
+    for remaining = s {
+      match remaining {
+        [] | [_] => break true
+        [a, .. rest, b] if a == b => continue rest
+        // a is of type Char, rest is of type StringView
+        _ => break false
+      }
     }
   }
-
-
+  inspect(process_point(Point::{ x: 0, y: 0 }), content="origin")
+  assert_true(is_palindrome("radar"))
+  assert_false(is_palindrome("hello"))
 }
 ```
 
-## Functional `loop` control flow
+## Functional `for` control flow
 
-The `loop` construct is unique to MoonBit:
+Use explicit loop binders for state, `continue` to update it, and `break` to return a result. The older `loop ... { ... }` syntax is deprecated.
 
 ```mbt check
 ///|
 /// Functional loop with pattern matching on loop variables
 /// @list.List is from the standard library
 fn sum_list(list : @list.List[Int]) -> Int {
-  loop (list, 0) {
-    (Empty, acc) => acc // Base case returns accumulator
-    (More(x, tail=rest), acc) => continue (rest, x + acc) // Recurse with new values
+  for remaining = list, acc = 0 {
+    match remaining {
+      Empty => break acc
+      More(x, tail=rest) => continue rest, x + acc
+    }
   }
 }
 
 ///|
 ///  Multiple loop variables with complex control flow
 fn find_pair(arr : Array[Int], target : Int) -> (Int, Int)? {
-  loop (0, arr.length() - 1) {
-    (i, j) if i >= j => None
-    (i, j) => {
+  for i = 0, j = arr.length() - 1 {
+    if i >= j {
+      break None
+    } else {
       let sum = arr[i] + arr[j]
       if sum == target {
-        Some((i, j)) // Found pair
+        break Some((i, j)) // Found pair
       } else if sum < target {
-        continue (i + 1, j) // Move left pointer
+        continue i + 1, j // Move left pointer
       } else {
-        continue (i, j - 1) // Move right pointer
+        continue i, j - 1 // Move right pointer
       }
     }
   }
 }
+
+///|
+test "functional loop results" {
+  inspect(sum_list(@list.List([1, 2, 3])), content="6")
+  debug_inspect(find_pair([1, 2, 4, 8], 6), content="Some((1, 2))")
+  debug_inspect(find_pair([1, 2, 4, 8], 20), content="None")
+}
 ```
 
-**Note**: You must provide a payload to `loop`. If you want an infinite loop, use `while true { ... }` instead. The syntax `loop { ... }` without arguments is invalid.
+For an infinite loop without state, use `for ;; { ... }` or `while true { ... }`.
 
 
 ## Methods and Traits
@@ -348,8 +388,21 @@ fn[T : Show + Named] describe(value : T) -> String {
 
 ///|
 ///  Trait implementation
-impl Hash for Rectangle with hash_combine(self, hasher) {
-  hasher..combine(self.width)..combine(self.height)
+pub impl Hash for Rectangle with hash_combine(self, hasher) {
+  hasher.combine(self.width)
+  hasher.combine(self.height)
+}
+
+///|
+impl Named for Rectangle with name(_self) {
+  "rectangle"
+}
+
+///|
+test "methods and trait calls" {
+  let rect = Rectangle::new(3, 4)
+  inspect(rect.area(), content="12")
+  inspect(describe(rect), content="rectangle: Rectangle(3x4)")
 }
 ```
 
@@ -383,6 +436,7 @@ test "overloading" {
   let v1 : Vector = Vector(1, 2)
   let v2 : Vector = Vector(3, 4)
   let _v3 : Vector = v1 + v2
+  assert_true(Person::{ age: 20 } < Person::{ age: 30 })
 
 }
 ```
@@ -395,12 +449,13 @@ MoonBit has fine-grained visibility control:
 ///|
 /// `fn` defaults to Private - only visible in current package
 fn internal_helper() -> Unit {
-  ...
+  ()
 }
 
 ///|
 pub fn get_value() -> Int {
-  ...
+  internal_helper()
+  42
 }
 
 ///|
@@ -423,4 +478,11 @@ pub trait MyTrait {}
 ///|
 ///  Open for extension
 pub(open) trait Extendable {}
+
+///|
+test "construct types inside their defining package" {
+  let _data = DataStructure::{}
+  let _config = Config::{}
+  inspect(get_value(), content="42")
+}
 ```
