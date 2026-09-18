@@ -32,14 +32,16 @@ mkdir -p ./.github/skills/
 git clone https://github.com/moonbitlang/moonbit-agent-guide ./.github/skills/moonbit
 ```
 
-Note: Agent Skills support in VS Code is currently in preview and available only in [VS Code Insiders](https://code.visualstudio.com/insiders/). Enable the `chat.useAgentSkills` setting to use Agent Skills. See [Use Agent Skills in VS Code](https://code.visualstudio.com/docs/copilot/customization/agent-skills) for details.
+Agent Skills are supported in VS Code. See [Use Agent Skills in VS Code](https://code.visualstudio.com/docs/agent-customization/agent-skills) for configuration and discovery details.
 
 ### Cursor & Cursor CLI
 
-> Agent Skills are available only in the Cursor nightly release channel.
+Agent Skills are supported in the Cursor editor and CLI, including stable releases since Cursor 2.4.
 
-Documentation: https://cursor.com/cn/docs/context/skills
+Documentation: https://cursor.com/docs/skills
 
 ### Gemini CLI
 
-It seems that Gemini CLI will support agent skills in next release: https://github.com/google-gemini/gemini-cli/issues/15327
+Gemini CLI supports Agent Skills. Use `gemini skills install` to install skills and `/skills` to manage them in a session.
+
+Documentation: https://geminicli.com/docs/cli/using-agent-skills/

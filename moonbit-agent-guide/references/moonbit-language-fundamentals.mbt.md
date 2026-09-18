@@ -170,7 +170,7 @@ let config : Addr = Addr::{
 
 Most types can automatically derive standard traits using the `derive(...)` syntax:
 
-- **`Debug`** - Enables `debug_inspect()` for structural test/diagnostic output; the derivable default for your own data types. For interpolation of composed values use `\{to_repr(value)}`
+- **`Debug`** - Enables `debug_inspect()` for structural test/diagnostic output; the derivable default for your own data types. For interpolation of composed values use `\{Repr(value)}`
 - **`Show`** - Produces specialized display strings (JSON, XML, user-facing text). Deriving it for debugging is deprecated in favor of `Debug`; write a manual `impl Show for T with output(self, logger) { ... }` only for genuine display formats
 - **`Eq`** - Enables `==` and `!=` equality operators
 - **`Compare`** - Enables `<`, `>`, `<=`, `>=` comparison operators
@@ -191,7 +191,7 @@ enum Status {
 } derive(Debug, Eq, Compare)
 ```
 
-**Best practice**: Derive `Debug` and `Eq` for data types (use `debug_inspect()` in tests; `\{to_repr(value)}` for interpolation). Add `ToJson` if you plan to test them with `json_inspect()`. Implement `Show` by hand only for specialized display formats (JSON, XML, user-facing text).
+**Best practice**: Derive `Debug` and `Eq` for data types (use `debug_inspect()` in tests; `\{Repr(value)}` for interpolation). Add `ToJson` if you plan to test them with `json_inspect()`. Implement `Show` by hand only for specialized display formats (JSON, XML, user-facing text).
 
 ## Reference Semantics by Default
 
@@ -335,15 +335,15 @@ pub impl Show for Rectangle with output(self, logger) {
 }
 
 ///|
-/// Traits can have non-object-safe methods
+/// Trait methods can take Self as a receiver
 trait Named {
-  name() -> String // No 'self' parameter - not object-safe
+  name(Self) -> String
 }
 
 ///|
 /// Trait bounds in generics
 fn[T : Show + Named] describe(value : T) -> String {
-  "\{T::name()}: \{value.to_string()}"
+  "\{Named::name(value)}: \{Show::to_string(value)}"
 }
 
 ///|

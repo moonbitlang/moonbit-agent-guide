@@ -1117,17 +1117,31 @@ test "map literals and common operations" {
 
 ## View Types
 
-**Key Concept**: View types (`StringView`, `BytesView`, `ArrayView[T]`) are zero-copy, non-owning read-only slices created with the `[:]` syntax. They don't allocate memory and are ideal for passing sub-sequences without copying data, for functions which take `String`, `Bytes`, `Array`, they also take `*View` (implicit conversion).
+**Key Concept**: View types (`StringView`, `BytesView`, `ArrayView[T]`) provide read-only access to a range without copying the underlying data. Parameters expecting a view can also accept the corresponding `String`, `Bytes`, or array via implicit conversion. The reverse conversion requires explicitly materializing the view.
 
 - `String` → `StringView` via `s[:]` or `s[start:end]` or `s[start:]` or `s[:end]`
 - `Bytes` → `BytesView` via `b[:]` or `b[start:end]`, etc.
-- `Array[T]`, `FixedArray[T]`, `ReadOnlyArray[T] → `ArrayView[T]` via `a[:]` or `a[start:end]`, etc.
+- `Array[T]`, `FixedArray[T]`, `ReadOnlyArray[T]` → `ArrayView[T]` via `a[:]` or `a[start:end]`, etc.
 
-**Important**: StringView slice is slightly different due to unicode safety:
-`s[a:b]` may raise an error at surrogate boundaries (UTF-16 encoding edge case). You have two options:
+**String boundaries**: Offsets count UTF-16 code units. Choose the operation by how invalid boundaries should be handled:
 
-- Use `try! s[a:b]` if you're certain the boundaries are valid (crashes on invalid boundaries)
-- Let the error propagate to the caller for proper handling
+- `s[a:b]` (`clamped_view`) clamps out-of-range offsets and snaps boundaries inward to avoid splitting surrogate pairs. It does not raise or panic; an inverted range yields an empty view.
+- `s.exact_view(start=a, end=b)` requires exact, valid boundaries and panics otherwise.
+- `s.get_view(start=a, end=b)` returns `None` for invalid boundaries.
+
+```mbt check
+///|
+test "string view boundaries and ownership" {
+  let s = "ab😀cd"
+  inspect(s[0:3], content="ab")
+  inspect(s[3:6], content="cd")
+  inspect(s[0:100], content="ab😀cd")
+  inspect(s[4:2], content="")
+  assert_true(s.get_view(end=3) is None)
+  let owned : String = s.exact_view(start=2, end=4).to_owned()
+  inspect(owned, content="😀")
+}
+```
 
 **When to use views**:
 
@@ -1135,7 +1149,7 @@ test "map literals and common operations" {
 - Passing slices to functions without allocation overhead
 - Avoiding unnecessary copies of large sequences
 
-Convert back with `.to_string()`, `.to_bytes()`, or `.to_array()` when you need ownership. (`moon ide doc StringView`)
+Use `.to_owned()` to materialize a `StringView`, `BytesView`, or `ArrayView[T]` as `String`, `Bytes`, or `Array[T]`. The old view conversion methods `.to_string()`, `.to_bytes()`, and `.to_array()` are deprecated. (`moon ide doc StringView`)
 
 ## User defined types(`enum`, `struct`)
 
