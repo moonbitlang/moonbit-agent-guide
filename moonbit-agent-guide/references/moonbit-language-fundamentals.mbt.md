@@ -22,7 +22,7 @@ fn Rect::area(self : Rect) -> Int {
 }
 
 ///|
-pub impl Show for Rect with output(_self, logger) {
+pub impl Show for Rect with fn output(_self, logger) {
   logger.write_string("Rect")
 }
 
@@ -189,7 +189,7 @@ test "newtypes and records" {
 Most types can automatically derive standard traits using the `derive(...)` syntax:
 
 - **`Debug`** - Enables `debug_inspect()` for structural test/diagnostic output; the derivable default for your own data types. For interpolation of composed values use `\{Repr(value)}`
-- **`Show`** - Produces specialized display strings (JSON, XML, user-facing text). Deriving it for debugging is deprecated in favor of `Debug`; write a manual `impl Show for T with output(self, logger) { ... }` only for genuine display formats
+- **`Show`** - Produces specialized display strings (JSON, XML, user-facing text). Deriving it for debugging is deprecated in favor of `Debug`; write a manual `impl Show for T with fn output(self, logger) { ... }` only for genuine display formats
 - **`Eq`** - Enables `==` and `!=` equality operators
 - **`Compare`** - Enables `<`, `>`, `<=`, `>=` comparison operators
 - **`ToJson`** - Enables `json_inspect()` for readable test output
@@ -370,7 +370,7 @@ fn Rectangle::new(w : Double, h : Double) -> Rectangle {
 ///|
 /// Show trait now uses output(self, logger) for custom formatting
 /// to_string() is automatically derived from this
-pub impl Show for Rectangle with output(self, logger) {
+pub impl Show for Rectangle with fn output(self, logger) {
   logger.write_string("Rectangle(\{self.width}x\{self.height})")
 }
 
@@ -388,13 +388,13 @@ fn[T : Show + Named] describe(value : T) -> String {
 
 ///|
 ///  Trait implementation
-pub impl Hash for Rectangle with hash_combine(self, hasher) {
+pub impl Hash for Rectangle with fn hash_combine(self, hasher) {
   hasher.combine(self.width)
   hasher.combine(self.height)
 }
 
 ///|
-impl Named for Rectangle with name(_self) {
+impl Named for Rectangle with fn name(_self) {
   "rectangle"
 }
 
@@ -416,7 +416,7 @@ struct Vector(Int, Int)
 
 ///|
 /// Implement arithmetic operators
-pub impl Add for Vector with add(self, other) {
+pub impl Add for Vector with fn add(self, other) {
   Vector(self.0 + other.0, self.1 + other.1)
 }
 
@@ -427,7 +427,7 @@ struct Person {
 
 ///|
 /// Comparison operators
-pub impl Compare for Person with compare(self, other) {
+pub impl Compare for Person with fn compare(self, other) {
   self.age.compare(other.age)
 }
 
