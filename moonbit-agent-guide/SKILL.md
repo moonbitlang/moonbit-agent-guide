@@ -375,7 +375,9 @@ The MoonBit code in a docstring will be type checked and tested automatically
 
 - The spec can be written in a readonly `spec.mbt` file (name is conventional, not mandatory) with stub code marked as declarations:
 
-```mbt check
+This intentionally incomplete contract is shown with `mbt nocheck`; it has no implementation to check or run as part of this guide. In a project, `moon check` reports unimplemented declarations until implementations are supplied.
+
+```mbt nocheck
 ///|
 declare pub type Yaml
 
@@ -852,7 +854,9 @@ fn parse_int(s : String, position~ : Position) -> Int raise ParseError {
   if s is "" {
     raise ParseError::InvalidEof(pos=position)
   }
-  ... // parsing logic
+  @string.parse_int(s) catch {
+    _ => raise ParseError::InvalidNumber(pos=position, s)
+  }
 }
 
 ///|
@@ -911,6 +915,15 @@ fn handle_parse(s : String, position~ : Position) -> Int {
     _ => 2
   }
 }
+
+///|
+test "error propagation and handling" {
+  let position = Position(0, 0)
+  inspect(use_parse("21", position~), content="42")
+  inspect(use_parse2(position~), content="246")
+  inspect(handle_parse("", position~), content="-1")
+  inspect(handle_parse("invalid", position~), content="2")
+}
 ```
 
 Important: When calling a function that can raise errors, if you only want to
@@ -932,11 +945,18 @@ test "integer and char literal overloading disambiguation via type in the curren
   // compile time error if the literal cannot be represented in the target type, 
   // e.g. let a7 : Byte = 256 // ❌ won't compile, 256 exceeds Byte max value 255
   assert_eq(int, uint16.to_int())
+  assert_eq(uint, 1U)
+  assert_eq(int64, 1L)
+  assert_eq(byte, b'\x01')
   let (a1, a2, a3) : (Int, Char, UInt16) = ('b', 'b', 'b')
   // char literal overloading, `a1` will be the unicode value of 'b', 
   // compile time error when the literal cannot be represented in the target type 
   // e.g, let a6 : UInt16 = '𐍈' // ❌ won't compile, '𐍈' is U+10348, which exceeds UInt16 max value 0xffff  
   let a4 : Byte = b'b' // Byte literal
+  assert_eq(a1, 98)
+  assert_eq(a2, 'b')
+  assert_eq(a3.to_int(), a1)
+  assert_eq(a4, b'b')
 }
 ```
 ## Bytes (Immutable)
@@ -946,6 +966,7 @@ test "integer and char literal overloading disambiguation via type in the curren
 test "bytes literals" {
   let b0 : Bytes = b"abcd"
   let b1 : Bytes = [0xff, 0x00, 0x01] // Array literal overloading
+  assert_eq(b1.length(), 3)
   guard b0 is [b'a', ..] && b0[1] is b'b' else {
     // Bytes can be pattern matched as BytesView and indexed
     fail("unexpected bytes content")
@@ -965,6 +986,10 @@ test "array literals overloading: disambiguation via type in the current context
   ) = ([1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3])
   // The literal `[1, 2, 3]` is overloaded based on the expected type in the current context.
   // Defaults to Array[_]
+  assert_eq(a0.length(), 3)
+  assert_eq(a1.length(), 3)
+  assert_eq(a2.length(), 3)
+  assert_eq(a3.length(), 3)
 }
 ```
 ## String (Immutable UTF-16)
@@ -991,6 +1016,7 @@ test "string indexing and utf8 encode/decode" {
 
   // ⚠️ Important: Variables won't work with direct indexing
   let eq_char : Char = '='
+  assert_false(s.get_char(0) == Some(eq_char))
   // s[0] == eq_char // ❌ Won't compile - eq_char is not a literal, lhs is UInt while rhs is Char
   // Use: s[0] == '=' or s.get_char(0) == Some(eq_char)
   // Requires `"moonbitlang/core/encoding/utf8"` in `moon.pkg`.
@@ -1088,6 +1114,8 @@ test "map literals and common operations" {
   let empty : Map[String, Int] = Map([]) // Empty map
   // From array of pairs
   let from_pairs : Map[String, Int] = Map::from_array([("x", 1), ("y", 2)])
+  assert_true(empty.is_empty())
+  inspect(from_pairs["x"], content="1")
 
   // Set/update value
   map["new-key"] = 3
@@ -1100,6 +1128,7 @@ test "map literals and common operations" {
 
   // Direct access (panics if key missing)
   let value : Int = map["a"] // value = 10
+  inspect(value, content="10")
 
   // Iteration preserves insertion order
   for k, v in map {
@@ -1182,6 +1211,8 @@ pub fn Point::Point(x~ : Int, y~ : Int) -> Point {
 
 ///|
 test "user defined types: enum and struct" {
+  let tree = Node(left=Leaf(1), 2, right=Leaf(3))
+  inspect(tree.sum(), content="6")
   json_inspect(Point(x=10, y=20), content={ "x": 10, "y": 20 })
   debug_inspect(
     Point(x=10, y=20),
@@ -1325,15 +1356,15 @@ struct APIOptions {
 }
 
 ///|
-fn not_idiomatic(opts : APIOptions, arg : Int) -> Unit {
-
+fn not_idiomatic(opts : APIOptions, arg : Int) -> Int {
+  opts.width.unwrap_or(arg) * opts.height.unwrap_or(arg)
 }
 
 ///|
 test {
   // Hard to use in call site
-  not_idiomatic({ width: Some(5), height: None }, 10)
-  not_idiomatic({ width: None, height: None }, 10)
+  inspect(not_idiomatic({ width: Some(5), height: None }, 10), content="50")
+  inspect(not_idiomatic({ width: None, height: None }, 10), content="100")
 }
 ```
 
