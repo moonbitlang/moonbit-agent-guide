@@ -114,7 +114,7 @@ pub enum LoadState {
 ///|
 /// pub (open) means the trait can be implemented for outside packages
 pub(open) trait Comparable {
-  compare(Self, Self) -> Int // `Self` refers to the implementing type
+  fn compare(Self, Self) -> Int // `Self` refers to the implementing type
 }
 
 ///|
@@ -337,7 +337,7 @@ pub impl Show for Rectangle with output(self, logger) {
 ///|
 /// Trait methods can take Self as a receiver
 trait Named {
-  name(Self) -> String
+  fn name(Self) -> String
 }
 
 ///|
