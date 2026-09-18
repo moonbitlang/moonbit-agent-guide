@@ -65,9 +65,9 @@ test "everything is expression in MoonBit" {
       break Some(i) // Exit with value
     }
     i = i + 1
-  } nobreak { // Value when loop completes normally
+  } nobreak {
     None
-  }
+  } // Value when loop completes normally
   assert_eq(found, Some(2)) // Found at index 2
 }
 
@@ -123,14 +123,14 @@ pub(open) trait Comparable {
 
 ///|
 test "inspect test" {
-  let rect : Rect = { width: 3, height: 4 }
+  let rect : Rect = { width: 3, height: 4, }
   inspect(rect.area(), content="12")
   debug_inspect(Loading, content="Loading")
   debug_inspect(Ready(1), content="Ready(1)")
   let result = sum(1, 2)
   inspect(result, content="3")
   // The `content` can be auto-corrected by running `moon test --update`
-  let point = Point::{ x: 10, y: 20 }
+  let point = Point::{ x: 10, y: 20, }
   // For complex structures, use json_inspect for better readability:
   json_inspect(point, content={ "x": 10, "y": 20 })
 }
@@ -175,13 +175,11 @@ let config : Addr = Addr::{
 test "newtypes and records" {
   inspect(raw, content="100")
   inspect(config.host, content="localhost")
-  let received : Ref[String] = Ref::{ val: "" }
+  let received : Ref[String] = Ref::{ val: "", }
   let handler = Handler(message => received.val = message)
   (handler.0)("hello")
   inspect(received.val, content="hello")
 }
-
-
 ```
 
 ## Common Derivable Traits
@@ -210,7 +208,7 @@ enum Status {
 
 ///|
 test "derived traits" {
-  let point : Coordinate = { x: 1, y: 2 }
+  let point : Coordinate = { x: 1, y: 2, }
   json_inspect(point, content={ "x": 1, "y": 2 })
   assert_true(Active < Inactive)
 }
@@ -243,10 +241,10 @@ fn modify_array(arr : Array[Int]) -> Unit {
 
 ///|
 test "reference semantics" {
-  let c : Counter = { value: 0 }
+  let c : Counter = { value: 0, }
   increment(c)
   inspect(c.value, content="1")
-  let counter : Ref[Int] = Ref::{ val: 0 }
+  let counter : Ref[Int] = Ref::{ val: 0, }
   counter.val += 1
   assert_true(counter.val is 1)
   let arr : Array[Int] = [1, 2, 3] // unlike Rust, no `mut` keyword needed
@@ -274,8 +272,8 @@ test "pattern match over Array, struct and StringView" {
   }
   fn process_point(point : Point) -> String {
     match point {
-      { x: 0, y: 0 } => "origin"
-      { x, y } if x == y => "diagonal"
+      { x: 0, y: 0, } => "origin"
+      { x, y, } if x == y => "diagonal"
       { x, .. } if x < 0 => "negative x"
       _ => "other"
     }
@@ -291,7 +289,7 @@ test "pattern match over Array, struct and StringView" {
       }
     }
   }
-  inspect(process_point(Point::{ x: 0, y: 0 }), content="origin")
+  inspect(process_point(Point::{ x: 0, y: 0, }), content="origin")
   assert_true(is_palindrome("radar"))
   assert_false(is_palindrome("hello"))
 }
@@ -364,7 +362,7 @@ fn Rectangle::area(self : Rectangle) -> Double {
 ///|
 /// Static methods don't need self
 fn Rectangle::new(w : Double, h : Double) -> Rectangle {
-  { width: w, height: h }
+  { width: w, height: h, }
 }
 
 ///|
@@ -436,8 +434,7 @@ test "overloading" {
   let v1 : Vector = Vector(1, 2)
   let v2 : Vector = Vector(3, 4)
   let _v3 : Vector = v1 + v2
-  assert_true(Person::{ age: 20 } < Person::{ age: 30 })
-
+  assert_true(Person::{ age: 20, } < Person::{ age: 30, })
 }
 ```
 
@@ -481,8 +478,8 @@ pub(open) trait Extendable {}
 
 ///|
 test "construct types inside their defining package" {
-  let _data = DataStructure::{}
-  let _config = Config::{}
+  let _data = DataStructure::{ }
+  let _config = Config::{ }
   inspect(get_value(), content="42")
 }
 ```

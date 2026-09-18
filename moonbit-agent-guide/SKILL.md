@@ -876,7 +876,8 @@ test "expected success calls directly" {
 ///|
 test "expected failure handles the raised error" {
   try div(1, 0) catch {
-    ValueError::ValueError(message) => inspect(message, content="Division by zero")
+    ValueError::ValueError(message) =>
+      inspect(message, content="Division by zero")
   } noraise {
     _ => fail("expected to fail")
   }
@@ -1004,9 +1005,7 @@ test "string indexing and utf8 encode/decode" {
   guard b0 is ('\n' | 'h' | 'b' | 'a'..='z') && s is [.. "hello", .. rest] else {
     fail("unexpected string content")
   }
-  guard rest is " world" else {
-    fail("unexpected string suffix")
-  }
+  guard rest is " world" else { fail("unexpected string suffix") }
 
   // In check mode (expression with explicit type), ('\n' : UInt16) is valid.
 
@@ -1206,7 +1205,7 @@ struct Point {
 
 ///|
 pub fn Point::Point(x~ : Int, y~ : Int) -> Point {
-  { x, y }
+  { x, y, }
 }
 
 ///|
@@ -1363,8 +1362,8 @@ fn not_idiomatic(opts : APIOptions, arg : Int) -> Int {
 ///|
 test {
   // Hard to use in call site
-  inspect(not_idiomatic({ width: Some(5), height: None }, 10), content="50")
-  inspect(not_idiomatic({ width: None, height: None }, 10), content="100")
+  inspect(not_idiomatic({ width: Some(5), height: None, }, 10), content="50")
+  inspect(not_idiomatic({ width: None, height: None, }, 10), content="100")
 }
 ```
 
@@ -1401,19 +1400,26 @@ Use `pub using` for facade ergonomics, not for type ownership.
 
 Good use:
 
-```mbt
+```mbt nocheck
 // root package
-pub using @parser { parse, parse_fragment }
-pub using @dom { type Node, type NodeKind, to_markdown }
-pub using @serializer { type HtmlContext }
+
+///|
+pub using @parser {parse, parse_fragment}
+
+///|
+pub using @dom {type Node, type NodeKind, to_markdown}
+
+///|
+pub using @serializer {type HtmlContext}
 ```
 
 This is good when `@parser`, `@dom`, and `@serializer` are public packages that already own those APIs.
 
 Good value re-export from an internal package:
 
-```mbt
-pub using @impl { decode_entities }
+```mbt nocheck
+///|
+pub using @impl {decode_entities}
 ```
 
 This is acceptable if the exported function signature does not expose internal types and you intentionally want that value as
@@ -1421,8 +1427,9 @@ public API.
 
 Risky use:
 
-```mbt
-pub using @internal_impl { type X }
+```mbt nocheck
+///|
+pub using @internal_impl {type X}
 ```
 
 Avoid this for public concrete types. If `X` is public, define it in the facade package or a non-internal public package. If
