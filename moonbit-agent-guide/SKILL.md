@@ -5,13 +5,14 @@ description: Guide for writing, refactoring, and testing MoonBit projects, inclu
 
 # MoonBit Task Checklist
 
-- Check `moon version --all` and the project's dependency versions before applying migration advice. This guide was validated with moon/moonc 2026-10-16 (moonc v0.10.16); async cancellation guidance below applies to `moonbitlang/async` 0.22 and later.
+- Check `moon version --all` and the project's dependency versions before applying migration advice. This guide was validated with moon/moonc 2026-10-16 (moonc v0.10.16); async cancellation guidance below applies to `moonbitlang/async` 0.22 and later. Re-validated 2026-10-27 against moon 0.1.20261023 / moonc v0.10.17 (legacy-manifest hard rejection, core explicit imports, `guard`/`defer`/`errdefer`, `moon tree`/`moon coverage`/`moon run --profile` flags).
 - Locate the enclosing `moon.mod` and relevant `moon.pkg` files before editing.
 - Discover APIs with `moon ide doc`; use `outline`, `peek-def`, `find-references`, `hover`, and `rename` for semantic navigation and refactoring.
 - Use `.mbtx` exclusively for agent-authored automation; keep automation logic out of shell scripts and other scripting languages.
+- For proof-carrying code (`.mbtp` files, `proof_enabled` packages, `moon prove`), switch to the `moonbit-proof` skill; this guide does not cover verification contracts.
 - Keep changes within the correct package. Files do not define namespaces; separate top-level items with `///|`.
 - Add regression tests for bug fixes. Add black-box tests and docstring examples for new public APIs.
-- Validate with `moon check` and the narrowest relevant `moon test`; use `moon test --update` only for intended snapshot changes. Use `moon explain --diagnostic` to list warnings and `--warn-list` to enable selected warnings (for example, `+unnecessary_annotation`).
+- Validate with `moon check` and the narrowest relevant `moon test`; use `moon test --update` only for intended snapshot changes. Use `moon explain --diagnostic` to list warnings and `--warn-list` to enable selected warnings (for example, `+unnecessary_annotation`). Toolchain-verified mnemonics worth knowing (2026-10-27): `core_package_not_imported` (71), `duplicate_test` (61), `missing_doc` (74, off by default), `guard_inexhaustive` (87), `unlabelled_break_in_labelled_loop` (85), `unused_errdefer` (91), `fragile_catch_all` (92).
 - Run `moon fmt` and `moon info` before handoff. Review generated `.mbti` changes, especially when the public API should remain stable.
 - For executable documentation, check and test every `.mbt.md` with `--deny-warn`, without blanket warning suppression. Format the examples too: accepted compatibility syntax is not necessarily canonical syntax. Standalone Markdown can be checked/tested directly; if `moon fmt` requires a module, format copies in a temporary module and sync the results back.
 
@@ -25,7 +26,12 @@ with its own `moon.pkg`. Subdirectories may also contain `moon.mod`
 files indicating that a different set of dependencies can be used for that subdir.
 Legacy projects may still contain `moon.mod.json`; treat it as the old module
 metadata format and migrate/update guidance to `moon.mod` instead of creating
-new `moon.mod.json` files.
+new `moon.mod.json` files. Current toolchains (verified 2026-10-27,
+moon 0.1.20261023) **hard-reject** both `moon.mod.json` and `moon.pkg.json`
+instead of warning: the error surfaces as `Failed to resolve the module
+dependency graph` / `Unable to read moon.pkg ... is no longer supported. Run
+'moon fmt' to migrate`. Treat that error as a migration gate, not an
+environment fault — run `moon fmt` and re-check.
 
 ## Example layout
 
@@ -125,6 +131,9 @@ my_module
 - **Don't use `for { ... }` for infinite loops** - write `for ;; { ... }` instead
 - **Don't `derive(Show)` for debugging** - derive `Debug` and use `debug_inspect()` for test/diagnostic output (`\{Repr(value)}` for interpolation of composed values). Reserve a manual `impl Show` for specialized display formats (JSON, XML, domain text)
 - **Don't call `@json.inspect()`** - use the prelude `json_inspect(value, ...)` without a package prefix
+- **Don't use core packages without importing them** - core aliases like `@json`, `@encoding/utf8`, `@test` are ordinary packages; add e.g. `"moonbitlang/core/json"` to the package's `moon.pkg` `import` block, or `moon check` warns `core_package_not_imported` (deprecated implicit use; verified 2026-10-27). Only `prelude` names (`println`, `json_inspect`, ...) are available without an import.
+- **Don't use a catch-all handler just for cleanup** - `moon check` flags it as `fragile_catch_all` (convertible to `defer`/`errdefer`); use `defer` for cleanup on every exit path and `errdefer` for error/cancellation paths (see the async 0.22 section). Dead cleanup branches warn `unused_errdefer`.
+- **`guard` needs an `else` arm when it may not match** - an inexhaustive `guard` panics at runtime and warns `guard_inexhaustive`; redundant `!` or `else` on an exhaustive guard warn `guard_redundant_bang`/`guard_redundant_else`. Keep the `guard cond else { fail/raise/... }` shape.
 - **JavaScript FFI**: use `FixedArray[T]` at JavaScript array boundaries. The JavaScript representation of resizable `Array[T]` is not a stable FFI contract.
 - **Async** - MoonBit has no `await` keyword; do not add it. Async functions default to raising, so do not add `raise`; add `noraise` only when the async body must not raise.
   Async functions and tests are characterized by those which call other async functions.
@@ -232,7 +241,7 @@ async fn main {
 
 ## Essential Commands
 
-- `moon new my_project` - Create new project
+- `moon new my_project` - Create new project (current output, verified 2026-10-27: root `moon.mod` with `preferred_target = "wasm"`, a root `moon.pkg`, `<name>.mbt`/`<name>_test.mbt`/`<name>_wbtest.mbt`, `cmd/main/` with `pkgtype(kind: "executable")`, `README.mbt.md` symlinked to `README.md`, plus `.githooks/`)
 - `moon run cmd/main` - Run main package
 - `moon run - < hello.mbtx` - Run script code from stdin (useful for quick experiments)
 - `moon run -e "code snippet"` - Run code from command line argument (good for one-liners)
@@ -670,6 +679,8 @@ pkgtype(kind: "executable")
 ```
 
 Use `supported_targets = "native"` or another target-set expression at top level when the whole package only supports selected backends.
+
+`moon.mod` may also set `preferred_target` (e.g. `preferred_target = "wasm"`) to select the default backend for `moon check`/`moon run`/`moon build`; `moon new` currently emits `preferred_target = "wasm"`.
 
 ```
 supported_targets = "native"
