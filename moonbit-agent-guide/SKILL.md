@@ -1071,6 +1071,59 @@ test "string indexing and utf8 encode/decode" {
 }
 ```
 
+### Regex Matching (`=~`, `lexmatch`, `lexscan`)
+
+MoonBit has three current match forms (verified on moonc v0.10.17 — the legacy
+string-piece `lexmatch` patterns and the `lexmatch?` boolean form were removed):
+
+- `input =~ re"..."` — Boolean search over `StringView`; bind matched pieces
+  with `as`, unmatched ends with `before`/`after` (`StringView`).
+- `lexmatch input { (re"...", after=rest) => ...; _ => ... }` — several regex
+  cases returning different results; strategies `with first` (default) /
+  `with longest`.
+- `lexscan` — streaming form over `@lexbuf.StringScanner`/`Lexbuf`/`AsyncLexbuf`
+  (every case anchored at `^`, cursor advances per match).
+
+**Writing fast matches** (official performance guidance — measured native
+runtime 0.12× and one-third code size vs the regex automaton for literal sets):
+
+- A single anchored literal compiles to one call with **no automaton**:
+  `s =~ re"^#"` compiles like `s.has_prefix("#")`, `re"\.mbt$"` like
+  `has_suffix`, `^text$` like `==`, a bare literal like `find`.
+- Anchor with `^`/`$` when a prefix, suffix, or the whole input is meant — an
+  unanchored pattern is a search.
+- Prefer `before`/`after` over `as` when they give what is needed: **any `as`
+  binding makes the match use an automaton**.
+- A `lexmatch` with several regex cases always uses an automaton (it reads the
+  input once regardless of case count); a single regex case plus a catch-all
+  compiles like `=~`.
+- From the release after v0.10.17, small anchored literal sets such as
+  `re"^(if|else|while)$"` also compile without an automaton (trie).
+- Regex escapes: `\d`/`\s`/`\w` shorthand are **not** supported — use
+  `[[:digit:]]`/`[[:space:]]`/`[[:word:]]`; match a literal `{` as `[{]`.
+
+```mbt check
+///|
+test "fast match forms" {
+  let line = "# comment"
+  inspect(line =~ re"^#", content="true")
+  let path = "a.mbt"
+  let stem = if path =~ (re"\.mbt$", before=s) { s.to_owned() } else { path }
+  inspect(stem, content="a")
+  let token = "0x1f"
+  let n = lexmatch token {
+    (re"^0x", after=digits) => digits.length() + 16
+    _ => token.length()
+  }
+  inspect(n, content="18")
+}
+```
+
+Sources: the official specification and conformance suite
+<https://github.com/moonbitlang/regex-lexical-spec> (performance guidance in
+`spec/09-performance-guidance.md`) and
+<https://docs.moonbitlang.com/en/latest/language/fundamentals.html#lexmatch>.
+
 ### String Interpolation && StringBuilder
 
 MoonBit uses `\{}` for string interpolation, for custom types, they need to implement trait `Show`.
