@@ -4,3 +4,4 @@ target/
 dist
 _build/
 target
+pkg.generated.mbti

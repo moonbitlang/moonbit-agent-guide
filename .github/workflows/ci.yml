@@ -24,12 +24,14 @@ jobs:
       - name: moon version
         run: moon version --all
 
-      - name: moon test moonbit-agent-guide/SKILL.mbt.md
+      - name: Test moonbit-agent-guide examples
+        working-directory: moonbit-agent-guide
         run: |
-          moon check moonbit-agent-guide/SKILL.mbt.md --deny-warn --no-render
-          moon test moonbit-agent-guide/SKILL.mbt.md --deny-warn --no-render
+          moon check SKILL.mbt.md --deny-warn --no-render
+          moon test SKILL.mbt.md --deny-warn --no-render
 
       - name: Test language fundamentals
+        working-directory: moonbit-agent-guide
         run: |
-          moon check moonbit-agent-guide/references/moonbit-language-fundamentals.mbt.md --deny-warn --no-render
-          moon test moonbit-agent-guide/references/moonbit-language-fundamentals.mbt.md --deny-warn --no-render
+          moon check references/moonbit-language-fundamentals.mbt.md --deny-warn --no-render
+          moon test references/moonbit-language-fundamentals.mbt.md --deny-warn --no-render
