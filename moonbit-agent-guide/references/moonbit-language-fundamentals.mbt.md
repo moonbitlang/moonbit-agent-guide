@@ -27,10 +27,11 @@ pub impl Show for Rect with fn output(_self, logger) {
 }
 
 ///|
+#derive(Debug, ToJson, Eq, Compare)
 enum MyOption {
   MyNone
   MySome(Int32)
-} derive(Debug, ToJson, Eq, Compare)
+}
 
 ///|
 ///  match + loops are expressions
@@ -102,16 +103,18 @@ pub fn maximum(xs : Array[Int32]) -> Int32 raise {
 
 ///|
 /// pub(all) means it can be both read and created outside the package
+#derive(Debug, ToJson)
 pub(all) struct Point {
   x : Int32
   mut y : Int32
-} derive(Debug, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub enum LoadState {
   Loading // semicolon `;` is optional when we have a newline
   Ready(Int32) // Enum variants must start uppercase
-} derive(Debug, Eq, ToJson)
+}
 // pub means it can only be pattern matched outside the package
 // but it can not be created outside the package, use `pub(all)` otherwise
 
@@ -158,10 +161,11 @@ let distance : Meters = Meters(100)
 let raw : Int32 = distance.0 // Access first field with .0
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 struct Addr {
   host : String
   port : Int32
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
 /// Structural types with literal syntax
@@ -195,16 +199,18 @@ Most types can automatically derive standard traits using the `derive(...)` synt
 
 ```mbt check
 ///|
+#derive(Debug, Eq, ToJson)
 struct Coordinate {
   x : Int32
   y : Int32
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, Compare)
 enum Status {
   Active
   Inactive
-} derive(Debug, Eq, Compare)
+}
 
 ///|
 test "derived traits" {
@@ -445,9 +451,10 @@ pub impl Add for Vector with fn add(self, other) {
 }
 
 ///|
+#derive(Eq)
 struct Person {
   age : Int32
-} derive(Eq)
+}
 
 ///|
 /// Comparison operators
