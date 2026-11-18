@@ -5,6 +5,8 @@ description: "Refactor MoonBit code to be idiomatic: shrink public APIs, convert
 
 # MoonBit Refactoring Skill
 
+> Validated 2026-10-27 against moon 0.1.20261023 / moonc v0.10.17+d971670cd by compiling every pattern below in a live multi-package project. Corrections baked in: loop `where` clauses accept only `proof_invariant`/`proof_yield`/`proof_reasoning` (error 4195), loop state is immutable (update via `continue`, error 4087), `pub using` (not bare `using`) re-exports during package splits, and `moon ide rename` previews unless `--apply`.
+
 ## Intent
 - Preserve behavior and public contracts unless explicitly changed.
 - Minimize the public API to what callers require.
@@ -39,9 +41,10 @@ When spinning off package `A` into `A` and `B`:
 1. Create the new package and re-export temporarily:
    ```mbt
    // In package B
-   using @A { ... }  // re-export A's APIs
+   pub using @A { ... }  // re-export A's APIs
    ```
    Ensure `moon check` passes before proceeding.
+   Note (verified v0.10.17): plain `using @A { ... }` only imports names into B's own scope — other packages cannot see them as `@B.f` (error 4021). Use `pub using` while call sites migrate.
 
 2. Find and update all call sites:
    ```bash
@@ -49,7 +52,7 @@ When spinning off package `A` into `A` and `B`:
    ```
    Replace bare `f` with `@B.f`.
 
-3. Remove the `use` statement once all call sites are updated.
+3. Remove the `pub using` statement once all call sites are updated.
 
 4. Audit and remove newly-unused `pub` APIs from both packages.
 
@@ -246,25 +249,29 @@ for i in 0..<len {
 ```
 
 
-## Loop Specs (Dafny-Style Comments)
+## Loop Specs (Dafny-Style Annotations)
 - Add specs for functional-state loops.
 - Skip invariants for simple `for x in xs` loops.
 - Add TODO when a decreases clause is unclear (possible bug).
 
-Example:
+Verified against moonc v0.10.17: the `where` clause only accepts `proof_invariant`, `proof_yield`, and `proof_reasoning` (bare `invariant:`/`reasoning:` is error 4195), and loop state variables are **immutable** in the body — update them functionally with `continue` (in-body assignment is error 4087).
+
+Example (compiles and runs, v0.10.17):
 ```mbt
 for i = 0, acc = 0; i < xs.length(); {
-  acc = acc + xs[i]
-  i = i + 1
+  continue i + 1, acc + xs[i]
 } nobreak { acc }
 where {
-  invariant: 0 <= i <= xs.length(),
-  reasoning: (
+  proof_invariant: 0 <= i,
+  proof_invariant: i <= xs.length(),
+  proof_reasoning: (
     #| ... rigorous explanation ...
-    #| ...
+    #| acc accumulates xs[0..i)
   )
 }
 ```
+
+Use `proof_yield: res => property(res)` when callers need a fact about the value the whole loop expression yields.
 
 
 ### Tests and Docs
@@ -302,13 +309,16 @@ moon ide doc "<query>"
 moon ide outline <dir|file>
 moon ide find-references <symbol>
 moon ide peek-def <symbol>
-moon ide rename <symbol> <new_name>
+moon ide rename <symbol> <new_name> [--loc path:line:col]  # preview edits
+moon ide rename <symbol> <new_name> --apply                # rewrite files
 moon ide analyze [path]
 moon check
 moon test
 moon info
 ```
 Use these commands for reliable refactoring.
+
+Rename semantics (verified v0.10.17): `moon ide rename` **previews** the patch by default — review it, then rerun with `--apply` to rewrite files. Add `--loc path:line:col` when the bare symbol name is ambiguous.
 
 Example: spinning off `package_b` from `package_a`.
 
