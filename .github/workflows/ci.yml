@@ -28,7 +28,7 @@ jobs:
         working-directory: moonbit-agent-guide
         run: |
           moon check SKILL.mbt.md --deny-warn --no-render
-          moon test SKILL.mbt.md --deny-warn --no-render
+          moon test . --deny-warn --no-render
 
       - name: Test language fundamentals
         working-directory: moonbit-agent-guide

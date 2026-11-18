@@ -188,7 +188,7 @@ test "newtypes and records" {
 
 ## Common Derivable Traits
 
-Most types can automatically derive standard traits using the `derive(...)` syntax:
+Most types can automatically derive standard traits with a `#derive(...)` attribute before the type declaration:
 
 - **`Debug`** - Enables `debug_inspect()` for structural test/diagnostic output; the derivable default for your own data types. For interpolation of composed values use `\{Repr(value)}`
 - **`Show`** - Produces specialized display strings (JSON, XML, user-facing text). Deriving it for debugging is deprecated in favor of `Debug`; write a manual `impl Show for T with fn output(self, logger) { ... }` only for genuine display formats

@@ -252,14 +252,16 @@ There is no `**` operator — use `@math.pow(base, exponent)`. Common helpers ar
 Map OCaml variants to MoonBit `enum`. Derive `Debug`, `Eq` for types that will be inspected in tests.
 
 ```sh
-moon run -c 'enum E { A(Int) } derive(Debug)
+moon run -c '#derive(Debug)
+enum E { A(Int) }
 fn E::value(self : E) -> Int { match self { A(n) => n } }
 fn main { let value = A(7); println(value.value()) }'
 # 7
 ```
 
 ```sh
-moon run -c 'enum E { A(Int); B(Int) } derive(Debug)
+moon run -c '#derive(Debug)
+enum E { A(Int); B(Int) }
 fn main { let xs : Array[E] = [E::A(1), E::B(2)]; println(xs.length()) }'
 # 2
 ```
@@ -283,7 +285,8 @@ fn main { let s = make(); println(s.value) }'
 Use `priv enum`/`priv struct` for internal helpers that should not appear in the package interface. Avoid deriving traits on private helpers unless a debug path actually uses the implementation.
 
 ```sh
-moon run -c 'struct S { a : Int; b : Int? } derive(Debug, Eq)
+moon run -c '#derive(Debug, Eq)
+struct S { a : Int; b : Int? }
 fn main { let s = { a: 1, b: None }; let t = { ..s, b: Some(2) }; match t.b { Some(value) => println(value); None => println(0) } }'
 # 2
 ```
@@ -291,7 +294,8 @@ fn main { let s = { a: 1, b: None }; let t = { ..s, b: Some(2) }; match t.b { So
 Record update is `{ ..old, field: value }`, the direct replacement for OCaml `{ old with field = value }`.
 
 ```sh
-moon run -c 'struct S { values : Int } derive(Debug)
+moon run -c '#derive(Debug)
+struct S { values : Int }
 fn make(values : Int) -> S? { Some({ values, }) }
 fn main { println(make(7).unwrap().values) }'
 # 7
@@ -541,7 +545,7 @@ fn main { println(first_positive([-2, 0, 7]).unwrap()); println(first_positive([
 - `alias` is a reserved keyword; avoid it as a local name, loop binder, or helper name to keep warning-enabled checks clean.
 - On the JavaScript backend, also avoid sentinel names like `undefined` for local test results — cross-target package tests can expose generated-JS name collisions.
 - Source files do **not** contain OCaml-style `open`. Add package imports in `moon.pkg`, then call imported packages with their `@alias`.
-- For `moon run -c` snippets that need extra packages, use an **MBTX import block** at the start: `import { "moonbitlang/x/crypto" }` (comma-separated entries for multiple packages). The source-file form `import "moonbitlang/core/encoding/ascii"` is rejected in command snippets.
+- For snippets that need extra packages, put the import block in frontmatter between two `----` lines and pass the script on stdin with `moon run -`. The source-file form `import "moonbitlang/core/encoding/ascii"` is rejected in command snippets.
 
 ## Process and Random
 
@@ -567,9 +571,9 @@ moon run --target native -c $'#cfg(target="native")\nfn target_name() -> String 
 MoonBit async has no `await` keyword — async functions call other async functions directly.
 
 - Keep CPU-bound pure transformations over `Bytes` synchronous.
-- Make filesystem/network entry points async when they touch `moonbitlang/async`.
+- Make filesystem/network entry points async when they touch `moonbitlang/core/async`.
 - Prefer async wrappers that load file contents into `Bytes`, then call the synchronous core. This avoids making every recursive helper async.
-- Async entry points and async tests need `moonbitlang/async` in the relevant `moon.pkg`; syntax alone is not enough.
+- Async entry points and async tests need `moonbitlang/core/async` in the relevant `moon.pkg`; syntax alone is not enough.
 - Async functions can raise by default. Do not add `raise` to async functions just to propagate errors; add `noraise` only when the async function must reject unhandled errors.
 
 ```sh
@@ -578,7 +582,21 @@ moon run --target native -c 'async fn main { println("async ok") }'
 ```
 
 ```sh
-moon run --target native -c $'import {\n  "moonbitlang/async",\n  "moonbitlang/async/fs" @fs,\n}\nasync fn main {\n  try @fs.read_file("/tmp/definitely-missing-fixture") catch {\n    _ => println(true)\n  } noraise {\n    _ => println(false)\n  }\n}'
+moon run --target native - <<'MBTX'
+----
+import {
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
+}
+----
+async fn main {
+  try @fs.read_binary("/tmp/definitely-missing-fixture") catch {
+    _ => println(true)
+  } noraise {
+    _ => println(false)
+  }
+}
+MBTX
 # true
 ```
 
@@ -609,9 +627,13 @@ fn main raise { helper() }'
 ```
 
 ```sh
-moon run -c 'import { "moonbitlang/core/test" }
+moon run - <<'MBTX'
+----
+import { "moonbitlang/core/test" }
+----
 fn helper() -> Unit raise { @test.assert_eq(true, true, msg="named assertion") }
-fn main raise { helper(); println("ok") }'
+fn main raise { helper(); println("ok") }
+MBTX
 # ok
 ```
 
