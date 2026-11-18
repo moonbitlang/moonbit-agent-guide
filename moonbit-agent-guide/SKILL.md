@@ -5,7 +5,7 @@ description: Guide for writing, refactoring, and testing MoonBit projects, inclu
 
 # MoonBit Task Checklist
 
-- Check `moon version --all` and the project's dependency versions before applying migration advice. This guide was validated with moon/moonc 2026-10-16 (moonc v0.10.16); async cancellation guidance below applies to `moonbitlang/async` 0.22 and later.
+- Check `moon version --all` and the project's dependency versions before applying migration advice. The examples below use moonc v0.10.21 and its bundled core async packages.
 - Locate the enclosing `moon.mod` and relevant `moon.pkg` files before editing.
 - Discover APIs with `moon ide doc`; use `outline`, `peek-def`, `find-references`, `hover`, and `rename` for semantic navigation and refactoring.
 - Use `.mbtx` exclusively for agent-authored automation; keep automation logic out of shell scripts and other scripting languages.
@@ -123,7 +123,7 @@ my_module
 - **Don't write record-style enum or error constructor fields** - labeled constructor fields use `label~ : Type`, e.g. `InvalidNumber(input~ : String)`, not `InvalidNumber(input: String)`
 - **Prefer range `for` loops over C-style** - `for i in 0..<(n-1) {...}` and `for j in 0..=6 {...}` are more idiomatic in MoonBit
 - **Don't use `for { ... }` for infinite loops** - write `for ;; { ... }` instead
-- **Don't `derive(Show)` for debugging** - derive `Debug` and use `debug_inspect()` for test/diagnostic output (`\{Repr(value)}` for interpolation of composed values). Reserve a manual `impl Show` for specialized display formats (JSON, XML, domain text)
+- **Don't `#derive(Show)` for debugging** - derive `Debug` and use `debug_inspect()` for test/diagnostic output (`\{Repr(value)}` for interpolation of composed values). Reserve a manual `impl Show` for specialized display formats (JSON, XML, domain text)
 - **Don't call `@json.inspect()`** - use the prelude `json_inspect(value, ...)` without a package prefix
 - **JavaScript FFI**: use `FixedArray[T]` at JavaScript array boundaries. The JavaScript representation of resizable `Array[T]` is not a stable FFI contract.
 - **Async** - MoonBit has no `await` keyword; do not add it. Async functions default to raising, so do not add `raise`; add `noraise` only when the async body must not raise.
@@ -139,7 +139,7 @@ conditionals, parsing, transformation, and process orchestration in MoonBit
 instead of shell scripts or another scripting language. The outer shell should
 only launch the script or run a direct, single-purpose command.
 
-An `.mbtx` file is an optional `import { ... }` block followed by ordinary
+Place script imports in frontmatter delimited by `----` lines, followed by ordinary
 MoonBit code, including a `main` function. Run it directly with:
 
 ```bash
@@ -151,12 +151,12 @@ Choose `main` by the effects the script actually uses:
 - `fn main { ... }` is synchronous and does not propagate errors.
 - `fn main raise { ... }` is synchronous and may propagate checked errors.
 - `async fn main { ... }` is for scripts that call async APIs. Import
-  `"moonbitlang/async"`; do not add `raise` or `await`.
+  `"moonbitlang/core/async"`; do not add `raise` or `await`.
 
 All three work on the default Wasm target. Do not mark a purely synchronous
 script `async`; MoonBit reports `unused_async`.
 
-When automation runs commands, import `"moonbitlang/async/shell"` and use
+When automation runs commands, import `"moonbitlang/core/async/shell"` and use
 `@shell.Cmd` or `@shell.Pipeline`. They keep the executable and arguments
 separate and never invoke a shell, so characters such as `|`, `$()`, and `*`
 are passed literally. Use ordinary MoonBit control flow instead of `&&`, shell
@@ -181,10 +181,12 @@ fn main {
 Command-line automation (`sum_args.mbtx`):
 
 ```mbtx
+----
 import {
   "moonbitlang/core/env",
   "moonbitlang/core/string",
 }
+----
 
 fn main raise {
   let args = @env.args()
@@ -201,9 +203,11 @@ Running `moon run sum_args.mbtx 10 20 12` prints `42`.
 Package imports work directly in the script header (`format_json.mbtx`):
 
 ```mbtx
+----
 import {
   "moonbitlang/core/json",
 }
+----
 
 fn main raise {
   let source =
@@ -220,9 +224,11 @@ Async automation works on the default Wasm target. For example, run
 `moon run async_job.mbtx` for:
 
 ```mbtx
+----
 import {
-  "moonbitlang/async",
+  "moonbitlang/core/async",
 }
+----
 
 async fn main {
   @async.sleep(10)
@@ -250,11 +256,13 @@ async fn main {
   `filter_diagnostics.mbtx`; `@shell.Cmd::each_line` runs `moon check` directly,
   streams its JSON output, and returns its exit status:
   ```mbtx
+----
 import {
-  "moonbitlang/async",
-  "moonbitlang/async/shell",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/shell",
   "moonbitlang/core/json",
 }
+----
 
 async fn main {
   let seen : Map[String, Unit] = Map([])
@@ -727,8 +735,9 @@ For more advanced topics like `conditional compilation`, `link configuration`, `
 
 ## Async IO
 
-Asynchronous programming uses compiler support plus the `moonbitlang/async`
-runtime. `async fn main` works on the default Wasm target as well as native when
+The v0.10.21 toolchain bundles `moonbitlang/core/async`. Projects pinned to an
+older core without this package can use the standalone `moonbitlang/async` module.
+`async fn main` works on the default Wasm target as well as native when
 the runtime is imported. Individual host I/O APIs may still be target-specific;
 use `moon ide doc "@async"` and validate on the intended target.
 
@@ -737,27 +746,28 @@ User-facing subpackages include `@async` (tasks, timers, cancellation),
 `@async/stdio`, and `@async/websocket`.
 Each must be imported separately in `moon.pkg` or an `.mbtx` import block.
 
-1. Add the dependency with `moon add moonbitlang/async`.
-2. In the executable's `moon.pkg`, declare the package type and import what you need:
+1. In the executable's `moon.pkg`, declare the package type and import what you need:
    ```
    import {
-     "moonbitlang/async",
-     "moonbitlang/async/stdio",
+     "moonbitlang/core/async",
+     "moonbitlang/core/async/stdio",
    }
    pkgtype(kind: "executable")
+   options("allow-experimental-packages": true)
    ```
-3. Define `async fn main` (not `fn main`). Spawn concurrent tasks via `with_task_group` for structured concurrency:
+   The option acknowledges experimental core packages. Standalone scripts can run with the experimental-package warning.
+2. Define `async fn main` (not `fn main`). Spawn concurrent tasks via `with_task_group` for structured concurrency:
    ```mbt nocheck
    ///|
    async fn main {
      @async.with_task_group(group => {
        group.spawn_bg(() => {
          @async.sleep(50)
-         @stdio.stdout.write("A\n")
+         @stdio.stdout.text.write("A\n")
        })
        group.spawn_bg(() => {
          @async.sleep(20)
-         @stdio.stdout.write("B\n")
+         @stdio.stdout.text.write("B\n")
        })
      })
    }
@@ -770,15 +780,15 @@ Each must be imported separately in `moon.pkg` or an `.mbtx` import block.
 
 - When `with_task_group` returns, every task spawned in the group has terminated. Tasks must still arrange cleanup of resources they acquire.
 - If any spawned task fails (and was spawned without `allow_failure=true`), the whole group fails: every other task in the group is cancelled, and the error propagates out of `with_task_group`.
-- Cancelled tasks are not ordinary failures and do not trigger peer cancellation. With async 0.22+, cancellation is a compiler signal, not a `suberror`.
+- Cancelled tasks are not ordinary failures and do not trigger peer cancellation. In core async, cancellation is a compiler signal, not a `suberror`.
 
-### Cancellation and Cleanup (async 0.22+)
+### Cancellation and Cleanup
 
 `catch` handles errors, not cancellation. Use `defer` for cleanup on every exit and `errdefer` for cleanup on error or cancellation. A catch-all used only for cleanup should be migrated accordingly.
 
 `noraise` does not mean non-cancellable: `@async.sleep` is `noraise` but can still be cancelled. `nocancel` is a separate effect; use `@async.protect_from_cancel` when cleanup must finish despite cancellation. `TaskGroup::add_defer` requires a `nocancel` callback.
 
-Use `@async.handle_cancellation` only when cancellation needs explicit handling. It returns `None` on cancellation without resetting the task's cancelled state. `@async.is_cancellation_error` is deprecated and always returns `false`; `with_cancellation_handler` is replaced by `handle_cancellation`. See the [async 0.22 migration notes](https://github.com/moonbitlang/async/releases/tag/v0.22.0).
+Use `@async.handle_cancellation` only when cancellation needs explicit handling. It returns `None` on cancellation without resetting the task's cancelled state.
 
 **Closure syntax for `spawn_bg` / `spawn`:**
 
@@ -789,13 +799,13 @@ Use `@async.handle_cancellation` only when cancellation needs explicit handling.
 
 ### Async tests
 
-Use `async test` for tests that call async functions. The package containing the test must import `moonbitlang/async` for the test mode; import any async subpackages used by the test in the same `for "test"` block.
+Use `async test` for tests that call async functions. The package containing the test must import `moonbitlang/core/async` for the test mode; import any async subpackages used by the test in the same `for "test"` block.
 
 ```
 import {
-  "moonbitlang/async",
-  "moonbitlang/async/stdio",
+  "moonbitlang/core/async",
 } for "test"
+options("allow-experimental-packages": true)
 ```
 
 ```mbt nocheck
@@ -812,7 +822,7 @@ async test "sleep completes" {
 - Run `moon test` on the intended target; add `--target native` only when the
   APIs under test require native execution. Use `moon test -v` when checking
   test names or async scheduling behavior.
-- In `README.mbt.md` and docstrings, `mbt check` blocks may contain `async test` blocks; make sure the package imports `moonbitlang/async` for the relevant test mode.
+- In `README.mbt.md` and docstrings, `mbt check` blocks may contain `async test` blocks; make sure the package imports `moonbitlang/core/async` for the relevant test mode.
 
 # MoonBit Language Tour
 
@@ -853,16 +863,18 @@ suberror ValueError {
 
 ///|
 /// Tuple struct to hold position info
-struct Position(Int32, Int32) derive(ToJson, Debug, Eq)
+#derive(ToJson, Debug, Eq)
+struct Position(Int32, Int32)
 
 ///|
 /// ParseError is subtype of Error
+#derive(Eq, ToJson, Debug)
 pub(all) suberror ParseError {
   InvalidChar(pos~ : Position, Char) // pos is labeled
   InvalidEof(pos~ : Position)
   InvalidNumber(pos~ : Position, String)
   InvalidIdentEscape(pos~ : Position)
-} derive(Eq, ToJson, Debug)
+}
 
 ///|
 /// Functions declare what they can throw
@@ -1224,10 +1236,11 @@ Use `.to_owned()` to materialize a `StringView`, `BytesView`, or `ArrayView[T]` 
 
 ```mbt check
 ///|
+#derive(Debug, ToJson)
 enum Tree[T] {
   Leaf(T) // Unlike Rust, no comma here
   Node(left~ : Tree[T], T, right~ : Tree[T]) // enum can use labels
-} derive(Debug, ToJson) // derive traits for Tree
+}
 
 ///|
 pub fn Tree::sum(tree : Tree[Int32]) -> Int32 {
@@ -1239,10 +1252,11 @@ pub fn Tree::sum(tree : Tree[Int32]) -> Int32 {
 }
 
 ///|
+#derive(Debug, ToJson)
 struct Point {
   x : Int32
   y : Int32
-} derive(Debug, ToJson) // derive traits for Point
+}
 
 ///|
 pub fn Point::Point(x~ : Int32, y~ : Int32) -> Point {
@@ -1268,10 +1282,11 @@ test "user defined types: enum and struct" {
 
 ```mbt check
 ///|
+#derive(Debug, Eq)
 pub(all) enum SearchIndex {
   Found(Int32)
   InsertionPoint(Int32)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn binary_search(arr : ArrayView[Int32], value : Int32) -> SearchIndex {
