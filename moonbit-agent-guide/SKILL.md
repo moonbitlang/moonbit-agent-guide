@@ -1097,19 +1097,13 @@ test "string interpolation basics" {
   // ✅ Quoted map keys are allowed inside interpolation expressions.
   println("  - Checking if 'cache' section exists: \{config["cache"]}")
   let sb = StringBuilder()
-  sb <+ "[\{[ for x in [1, 2, 3] => "\{x}" ].join(",")}]"
+  sb.write_string("[\{[ for x in [1, 2, 3] => "\{x}" ].join(",")}]")
   inspect(sb, content="[1,2,3]")
-  let x = 42
-  let streamed = StringBuilder()
-  streamed <+ "hello \{x}"
-  inspect(streamed, content="hello 42")
 }
 ```
 
 Expressions inside `\{}` must be single-line expressions.
 Nested interpolations and string literals are supported, but line breaks inside `\{}` are not.
-
-Use `<+` to stream an interpolated string into a writer. For `streamed <+ "hello \{x}"` above, MoonBit calls `streamed.write_string("hello ")` and `streamed.write(x)`. For an optional writer, unwrap it first with `if writer is Some(w) { w <+ "hello \{x}" }`.
 
 ### Multiple line strings
 
