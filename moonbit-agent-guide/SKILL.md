@@ -1109,7 +1109,7 @@ test "string interpolation basics" {
 Expressions inside `\{}` must be single-line expressions.
 Nested interpolations and string literals are supported, but line breaks inside `\{}` are not.
 
-Use `<+` to stream an interpolated string into a writer. For `streamed <+ "hello \{x}"` above, MoonBit calls `streamed.write_string("hello ")` and `streamed.write(x)`. For an optional writer, unwrap it first with `if writer is Some(w) { w <+ "hello \{x}" }`.
+Use `<+` to stream an interpolated string into a writer. For `streamed <+ "hello \{x}"` above, MoonBit calls `streamed.write_string("hello ")` followed by `streamed.write_string_interpolation(x)`. For an optional writer, unwrap it first with `if writer is Some(w) { w <+ "hello \{x}" }`.
 
 ### Multiple line strings
 
