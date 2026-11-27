@@ -1108,33 +1108,8 @@ test "string interpolation basics" {
 
 Expressions inside `\{}` must be single-line expressions.
 Nested interpolations and string literals are supported, but line breaks inside `\{}` are not.
-#### `<+` and `<?` macros for streaming interpolation
-String interpolation can be streamed directly into a `Logger`/`StringBuilder`-style writer with `<+`, or conditionally through an optional writer with `<?`:
 
-```mbt nocheck
-writer <+ "hello \{x}"
-writer <+ {"key1": value, "key2": value2}
-lhs <? "hello \{x}"
-lhs <? {"key1": value, "key2": value2}
-```
-
-This expands to calls on the writer:
-
-```mbt nocheck
-writer.write_string("hello ")
-writer.write(x)
-writer.write_object_begin()
-writer.write_object_field("key1", value)
-writer.write_object_field("key2", value2)
-writer.write_object_end()
-if lhs is Some(l) { l <+ "hello \{x}" }
-```
-
-Literal string segments use `write_string`; interpolated expressions use `write`.
-For `<?`, `None` performs no write; `Some(writer)` applies the same `<+` expansion to the wrapped writer.
-The right-hand side of `<+` and `<?` must be a template string/multiline template string or a map object literal, not an arbitrary expression.
-The expansion is macro-style: it depends on how the `writer` type implements `write_string` and `write` for template strings, plus `write_object_begin`, `write_object_field`, and `write_object_end` for map object literals. Types such as HTMLBuilder or JSONBuilder can support interpolation and streaming with the same syntax but different semantics.
-Because MoonBit allows local methods on foreign types, a package can adapt an existing writer type to this syntax by adding those local writer methods.
+Use `<+` to stream an interpolated string into a writer. For `streamed <+ "hello \{x}"` above, MoonBit calls `streamed.write_string("hello ")` and `streamed.write(x)`. For an optional writer, unwrap it first with `if writer is Some(w) { w <+ "hello \{x}" }`.
 
 ### Multiple line strings
 
