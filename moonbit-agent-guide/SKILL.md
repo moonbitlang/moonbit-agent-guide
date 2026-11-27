@@ -5,7 +5,7 @@ description: Guide for writing, refactoring, and testing MoonBit projects, inclu
 
 # MoonBit Task Checklist
 
-- Check `moon version --all` and the project's dependency versions before applying migration advice. The examples below use moonc v0.10.21 and its bundled core async packages.
+- Check `moon version --all` and the project's dependency versions before applying migration advice. The script examples use MoonBit 1.0 RC1 and its bundled core async packages.
 - Locate the enclosing `moon.mod` and relevant `moon.pkg` files before editing.
 - Discover APIs with `moon ide doc`; use `outline`, `peek-def`, `find-references`, `hover`, and `rename` for semantic navigation and refactoring.
 - Use `.mbtx` exclusively for agent-authored automation; keep automation logic out of shell scripts and other scripting languages.
@@ -119,7 +119,6 @@ my_module
 - **Don't use ++ or -- (not supported)** - use `i = i + 1` or `i += 1`
 - **Don't add explicit `try` for error propagation** - inside a `raise` function, call error-raising functions normally; use `catch` to handle locally and `try!` only when aborting is intended
 - **Legacy syntax**: Legacy code may use `function_name!(...)` or `function_name(...)?` - these are deprecated; use normal calls for propagation.
-- **Don't write an empty parameter list for `main`** - use `fn main { ... }` or `fn main raise { ... }`, not `fn main() { ... }` or `fn main() raise ... { ... }`
 - **Don't write record-style enum or error constructor fields** - labeled constructor fields use `label~ : Type`, e.g. `InvalidNumber(input~ : String)`, not `InvalidNumber(input: String)`
 - **Prefer range `for` loops over C-style** - `for i in 0..<(n-1) {...}` and `for j in 0..=6 {...}` are more idiomatic in MoonBit
 - **Don't use `for { ... }` for infinite loops** - write `for ;; { ... }` instead
@@ -127,8 +126,7 @@ my_module
 - **Don't call `@json.inspect()`** - use the prelude `json_inspect(value, ...)` without a package prefix
 - **JavaScript FFI**: use `FixedArray[T]` at JavaScript array boundaries. The JavaScript representation of resizable `Array[T]` is not a stable FFI contract.
 - **Async** - MoonBit has no `await` keyword; do not add it. Async functions default to raising, so do not add `raise`; add `noraise` only when the async body must not raise.
-  Async functions and tests are characterized by those which call other async functions.
-  To identify a function or test as async, simply add the `async` prefix (e.g. `[pub] async fn ...`, `async test ...`).
+  Write `fn main` for the entry point. Use `async fn` for other named functions that call async APIs and `async test` for async tests.
 
 # `moon` Essentials
 
@@ -139,30 +137,21 @@ conditionals, parsing, transformation, and process orchestration in MoonBit
 instead of shell scripts or another scripting language. The outer shell should
 only launch the script or run a direct, single-purpose command.
 
-Place script imports in frontmatter delimited by `----` lines, followed by ordinary
-MoonBit code, including a `main` function. Run it directly with:
+Write `fn main { ... }`. MoonBit 1.0 infers its `async` and `raise` effects from
+the body. Put any imports between `----` lines at the top of the script.
+Run the file directly with `moonx`.
 
 ```bash
-moon run path/to/script.mbtx [args...]
+moonx path/to/script.mbtx [args...]
 ```
 
-Choose `main` by the effects the script actually uses:
-
-- `fn main { ... }` is synchronous and does not propagate errors.
-- `fn main raise { ... }` is synchronous and may propagate checked errors.
-- `async fn main { ... }` is for scripts that call async APIs. Import
-  `"moonbitlang/core/async"`; do not add `raise` or `await`.
-
-All three work on the default Wasm target. Do not mark a purely synchronous
-script `async`; MoonBit reports `unused_async`.
-
-When automation runs commands, import `"moonbitlang/core/async/shell"` and use
-`@shell.Cmd` or `@shell.Pipeline`. They keep the executable and arguments
+When automation runs commands, import `"moonbitlang/core/async/process"` and use
+`@process.Cmd` or `@process.spawn`. They keep the executable and arguments
 separate and never invoke a shell, so characters such as `|`, `$()`, and `*`
 are passed literally. Use ordinary MoonBit control flow instead of `&&`, shell
 loops, or command substitution.
 
-Script mode defaults to Wasm. Supplying `--wasm-policy policy.json` enables
+With `moonx`, scripts run on Wasm. Supplying `--experimental-policy policy.json` enables
 deny-by-default control over MoonBit host APIs; grant only the required
 filesystem, environment, network, or process access. For process automation,
 prefer a narrow `process.allow` rule with an exact program and argument prefix
@@ -173,6 +162,7 @@ they are not trusted.
 Minimal script (`hello.mbtx`):
 
 ```mbtx
+///|
 fn main {
   println("Hello from MoonBit script mode")
 }
@@ -188,7 +178,8 @@ import {
 }
 ----
 
-fn main raise {
+///|
+fn main {
   let args = @env.args()
   for arg in args[1:]; total = 0 {
     continue total + @string.parse_int(arg)
@@ -198,7 +189,7 @@ fn main raise {
 }
 ```
 
-Running `moon run sum_args.mbtx 10 20 12` prints `42`.
+Running `moonx sum_args.mbtx 10 20 12` prints `42`.
 
 Package imports work directly in the script header (`format_json.mbtx`):
 
@@ -209,7 +200,8 @@ import {
 }
 ----
 
-fn main raise {
+///|
+fn main {
   let source =
     #|{
     #|  "project": "moonbit",
@@ -220,8 +212,7 @@ fn main raise {
 }
 ```
 
-Async automation works on the default Wasm target. For example, run
-`moon run async_job.mbtx` for:
+Run this timer example with `moonx async_job.mbtx`.
 
 ```mbtx
 ----
@@ -230,7 +221,8 @@ import {
 }
 ----
 
-async fn main {
+///|
+fn main {
   @async.sleep(10)
   println("async automation complete")
 }
@@ -240,7 +232,7 @@ async fn main {
 
 - `moon new my_project` - Create new project
 - `moon run cmd/main` - Run main package
-- `moon run - < hello.mbtx` - Run script code from stdin (useful for quick experiments)
+- `moon run -` - Read script code from stdin
 - `moon run -e "code snippet"` - Run code from command line argument (good for one-liners)
   ```
   moon run -e 'fn main { println("Hello, MoonBit!") }'
@@ -253,23 +245,29 @@ async fn main {
 - `moon check --target all` - Type check for all backends
   Process structured diagnostics with a saved `.mbtx` script rather than a
   shell pipeline or another scripting language. For example, save this as
-  `filter_diagnostics.mbtx`; `@shell.Cmd::each_line` runs `moon check` directly,
-  streams its JSON output, and returns its exit status:
+  `filter_diagnostics.mbtx` to stream the JSON output of `moon check` and print
+  each path with a warning once.
   ```mbtx
 ----
 import {
   "moonbitlang/core/async",
-  "moonbitlang/core/async/shell",
+  "moonbitlang/core/async/process",
   "moonbitlang/core/json",
 }
 ----
 
-async fn main {
-  let seen : Map[String, Unit] = Map([])
-  let exit_code = @shell.Cmd(
-    "moon",
-    ["check", "--target", "all", "--output-json"],
-  ).each_line(line => {
+///|
+fn main {
+  @async.with_task_group(group => {
+    let child = @process.spawn(
+      group,
+      "moon",
+      ["check", "--target", "all", "--output-json"],
+      stdout=Collect,
+    )
+    defer child.stdout.close()
+    let seen : Map[String, Unit] = Map([])
+    while child.stdout.text.read_line() is Some(line) {
       try @json.parse(line) catch {
         _ => ()
       } noraise {
@@ -280,15 +278,19 @@ async fn main {
           }
         _ => ()
       }
-    })
-  if exit_code != 0 {
-    fail("moon check exited with code \{exit_code}")
-  }
+    }
+    let exit_code = child.wait()
+    if exit_code != 0 {
+      fail("moon check exited with code \{exit_code}")
+    }
+  })
 }
   ```
-  Run it with a policy that allows that command prefix:
+  Save the following as `moon-check-policy.json`. It lets the child locate the
+  toolchain and allows the command prefix used above.
   ```json
   {
+    "env": { "from_host": ["PATH", "HOME", "MOON_HOME"] },
     "process": {
       "allow": [
         {
@@ -300,7 +302,7 @@ async fn main {
   }
   ```
   ```bash
-  moon run --wasm-policy moon-check-policy.json filter_diagnostics.mbtx
+  moonx --experimental-policy moon-check-policy.json filter_diagnostics.mbtx
   ```
 - `moon explain` - Show built-in documentation for compiler diagnostics and language topics.
   - `moon explain --diagnostic` lists warning mnemonics and IDs.
@@ -735,14 +737,14 @@ For more advanced topics like `conditional compilation`, `link configuration`, `
 
 ## Async IO
 
-The v0.10.21 toolchain bundles `moonbitlang/core/async`. Projects pinned to an
+MoonBit 1.0 bundles `moonbitlang/core/async`. Projects pinned to an
 older core without this package can use the standalone `moonbitlang/async` module.
-`async fn main` works on the default Wasm target as well as native when
-the runtime is imported. Individual host I/O APIs may still be target-specific;
+Import the async runtime for an entry point that calls async APIs on Wasm or native.
+Individual host I/O APIs may still be target-specific;
 use `moon ide doc "@async"` and validate on the intended target.
 
 User-facing subpackages include `@async` (tasks, timers, cancellation),
-`@async/aqueue`, `@async/fs`, `@async/shell` (shell-free process orchestration),
+`@async/aqueue`, `@async/fs`, `@async/process` (shell-free process orchestration),
 `@async/stdio`, and `@async/websocket`.
 Each must be imported separately in `moon.pkg` or an `.mbtx` import block.
 
@@ -756,10 +758,10 @@ Each must be imported separately in `moon.pkg` or an `.mbtx` import block.
    options("allow-experimental-packages": true)
    ```
    The option acknowledges experimental core packages. Standalone scripts can run with the experimental-package warning.
-2. Define `async fn main` (not `fn main`). Spawn concurrent tasks via `with_task_group` for structured concurrency:
+2. Use `with_task_group` inside `fn main` to run tasks concurrently.
    ```mbt nocheck
    ///|
-   async fn main {
+   fn main {
      @async.with_task_group(group => {
        group.spawn_bg(() => {
          @async.sleep(50)
@@ -773,7 +775,7 @@ Each must be imported separately in `moon.pkg` or an `.mbtx` import block.
    }
    ```
 
-- Async functions have a raising effect by default. Write `async fn main { ... }` or `async fn f(...) { ... }`, not `async fn main raise { ... }`.
+- Async functions such as `async fn f(...) { ... }` can raise by default.
 - Use `async fn f(...) noraise { ... }` only when the async body must not raise. A `noraise` async function cannot call fallible APIs unless it handles their errors locally.
 
 **Structured-concurrency contract for `with_task_group`:**
@@ -847,7 +849,7 @@ MoonBit uses checked error-throwing functions, not unchecked exceptions. All err
 Checked errors are tracked in function signatures, not marked at every call site. A function that may raise declares `raise` or `raise SomeError`. If the caller only wants to pass that error upward, the caller also declares a compatible `raise` and calls the raising function normally.
 
 - Plain call inside a `raise` function: propagate automatically.
-- `fn main raise { ... }` is valid for synchronous command-line probes and small examples that should propagate errors. For async entry points, use `async fn main { ... }`; async functions can raise by default.
+- In `fn main`, call fallible APIs directly to propagate their errors.
 - In `suberror` constructors, labeled payloads use `label~ : Type`; call and pattern-match them with `label=value`.
 - `expr catch { ... }` or `try { ... } catch { ... }`: handle explicitly.
 - `try! expr`: abort if an error is raised.
